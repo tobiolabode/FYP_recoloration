@@ -82,11 +82,11 @@ parser.add_argument("--checkpoint_dir_out", type=str, default="./dataset/checkpo
 parser.add_argument("--val_output_path", type=str, default="./dataset/checkpoints/spcolor/SSCN")
 parser.add_argument("--log_path", type=str, default="./dataset/checkpoints/spcolor/runs/stego_pro_s")
 parser.add_argument("--reference_order", type=int, default=1)
-parser.add_argument("--tb_log_step", type=int, default=1000)
+parser.add_argument("--tb_log_step", type=int, default=1000) # OG 1000
 parser.add_argument("--save_checkpoint_step", type=int, default=10000)
 parser.add_argument("--validation_step", type=int, default=5000)
 
-parser.add_argument("--print_step", type=int, default=10)
+parser.add_argument("--print_step", type=int, default=1) # OG 10
 
 parser.add_argument("--real_reference_probability", type=float, default=0.8)
 parser.add_argument("--nonzero_placeholder_probability", type=float, default=0.0)
@@ -154,6 +154,7 @@ def image_logger_fn(
 
 
 def training_logger():
+    print('inside training_logger()')
     try:
         if total_iter % opt.print_step == 0:
             end_time = time.time()
@@ -184,6 +185,7 @@ def training_logger():
             #         "discriminator_loss", discriminator_loss.item(),
             #         "total_loss", total_loss.item(),)
 
+            # this function needs to run so scalers show on tensorboard
             value_logger(
                 tb_writer,
                 total_iter,
@@ -201,6 +203,8 @@ def training_logger():
                     "top5": top5,
                 },
             )
+            print("l1_loss", l1_loss.item())
+            print("feat_loss", feat_loss.item())
 
         if total_iter % opt.tb_log_step == 2:
             # I_current_nonlocal_lab = torch.cat(
@@ -318,6 +322,8 @@ def load_data_imagenet():
     #     real_reference_probability=opt.real_reference_probability,
     #     nonzero_placeholder_probability=opt.nonzero_placeholder_probability,
     # )
+
+    # reference rec algo here????
     train_dataset_imagenet = VideosDataset_ImageNet(
         data_root=opt.data_root_imagenet,
         image_size=opt.image_size,
@@ -393,7 +399,7 @@ def load_data_imagenet10k():
                 data_root=opt.data_root_imagenet10k,
                 image_size=opt.image_size,
                 transforms_imagenet=transforms_imagenet,
-                reference_order=opt.reference_order,
+                reference_order=opt.reference_order, #ref order?!?!?
             )
 
     #imagenet_training_length = len(train_dataset_imagenet)
@@ -1108,6 +1114,7 @@ def validate():
     #torch.distributed.barrier()
     return fid,top1,top5
 
+# TODO: HOW DOES THE REFENECE IMGS GET PICK IN THIS REPO?
 if __name__ == "__main__":
     #torch.multiprocessing.set_start_method("fork", force=True)
     #set_start_method('fork')
@@ -1144,6 +1151,7 @@ if __name__ == "__main__":
     #     tb_image_reorder = TBImageRecorder(tb_writer, image_logger_fn, data_queue)
     #     tb_image_reorder.start()
    
+   # Tensorboard
     if local_rank == 0:
         tb_writer = SummaryWriter(log_path=opt.log_path)
         data_queue = queue.Queue()
@@ -1166,7 +1174,7 @@ if __name__ == "__main__":
         cra = True
     else:
         cra = False
-    stego = STEGO_seg(cra,opt.num_class) # error from loading checkpoint does not exist
+    stego = STEGO_seg(cra,opt.num_class)
     for param in stego.par_model.parameters():
         param.requires_grad = False
 
@@ -1324,11 +1332,11 @@ if __name__ == "__main__":
         epoch_start = time.time()
         for iter, data in enumerate(data_loader):	# keep breakpoint for debug loop				 #每个iter读取的数据
             #print("in training!",len(data_loader))
+
+            total_iter += 1
+            
             print("inside training loop")
             print("iter:", iter)
-            # FIX:  weight type (torch.cuda.FloatTensor)
-            # replace weight type cuda
-            total_iter += 1
 
             ###### LOADING DATA SAMPLE ######
             (
@@ -1338,7 +1346,8 @@ if __name__ == "__main__":
                 I_reference_rgb,
                 self_ref_flag,
             ) = data
-            #print("got data!")
+            print("got data!")
+
             # I_current_lab = I_current_lab.cuda(non_blocking=True)
             # I_reference_lab = I_reference_lab.cuda(non_blocking=True)
             # I_current_rgb = I_current_rgb.cuda(non_blocking=True)
@@ -1354,7 +1363,7 @@ if __name__ == "__main__":
             features_B = vggnet(I_reference_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True)
             ###### stego clusters#####
             cluster_value_current,cluster_preds_current = stego.my_app(I_current_rgb)  # 8 256 256
-            cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb)
+            cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb) 
 
             ###### COLORIZATION ######						###### COLORIZATION ######
             (

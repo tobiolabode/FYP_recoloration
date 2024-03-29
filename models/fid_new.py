@@ -1,3 +1,4 @@
+import warnings
 import torch
 from torch import nn
 from torchvision.models import inception_v3
@@ -28,7 +29,7 @@ class PartialInceptionNetwork(nn.Module):
 
     def __init__(self, transform_input=True):
         super().__init__()
-        self.inception_network = inception_v3(pretrained=True)
+        self.inception_network = inception_v3(pretrained=True) # weights=Inception_V3_Weights.DEFAULT # pretrained=True
         self.inception_network.Mixed_7c.register_forward_hook(self.output_hook)
         self.transform_input = transform_input
 
@@ -71,17 +72,19 @@ def get_activations(images, batch_size):
 
     num_images = images.shape[0]
     inception_network = PartialInceptionNetwork()
-    inception_network = to_cuda(inception_network)
+    # inception_network = to_cuda(inception_network)
     inception_network.eval()
     n_batches = int(np.ceil(num_images  / batch_size))
     inception_activations = np.zeros((num_images, 2048), dtype=np.float32)
     for batch_idx in range(n_batches):
         start_idx = batch_size * batch_idx
-        end_idx = batch_size * (batch_idx + 1)
-
+        end_idx = batch_size * (batch_idx + 1) # Ensure not to go beyond the last index
+ 
         ims = images[start_idx:end_idx]
-        ims = to_cuda(ims)
-        activations = inception_network(ims)
+        # ims = to_cuda(ims)
+        with torch.no_grad():  # Temporarily set all the requires_grad flag to false
+            activations = inception_network(ims)
+        # activations = inception_network(ims)
         activations = activations.detach().cpu().numpy()
         assert activations.shape == (ims.shape[0], 2048), "Expexted output shape to be: {}, but was: {}".format((ims.shape[0], 2048), activations.shape)
         inception_activations[start_idx:end_idx, :] = activations
@@ -137,6 +140,10 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     assert sigma1.shape == sigma2.shape, "Training and test covariances have different dimensions"
 
     diff = mu1 - mu2
+
+    # Adding a tiny value to the diagonal of covariance matrices to make them positive definite
+    sigma1 += np.eye(sigma1.shape[0]) * eps
+    sigma2 += np.eye(sigma2.shape[0]) * eps
     # product might be almost singular
     covmean, _ = linalg.sqrtm(sigma1.dot(sigma2), disp=False)
     if not np.isfinite(covmean).all():
@@ -148,8 +155,9 @@ def calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     # numerical error might give slight imaginary component
     if np.iscomplexobj(covmean):
         if not np.allclose(np.diagonal(covmean).imag, 0, atol=1e-3):
-            m = np.max(np.abs(covmean.imag))
-            raise ValueError("Imaginary component {}".format(m))
+            # m = np.max(np.abs(covmean.imag))
+            # raise ValueError("Imaginary component {}".format(m))
+            warnings.warn(f"Imaginary component discarded. Max imaginary component: {np.max(np.abs(covmean.imag))}")
         covmean = covmean.real
 
     tr_covmean = np.trace(covmean)
@@ -224,7 +232,12 @@ def calculate_fid(images1, images2, use_multiprocessing, batch_size):
     return fid
 
 
-def load_images(path,gray=False):
+def resize_images_for_loading(path):
+    return resized_images
+
+
+
+def load_images(path, target_size=None, gray=False):
     """ Loads all .png or .jpg images from a given path
     Warnings: Expects all images to be of same dtype and shape.
     Args:
@@ -242,15 +255,23 @@ def load_images(path,gray=False):
     W, H = first_image.shape[:2]
     image_paths.sort()
     image_paths = image_paths
-    final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
+    first_image = cv2.imread(image_paths[0])
+    if target_size is None:
+        target_size = first_image.shape[1], first_image.shape[0]
+    
+    final_images = np.zeros((len(image_paths), W, H, 3), dtype=first_image.dtype) #  final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
+   
     for idx, impath in enumerate(image_paths):
-        im = cv2.imread(impath)
+        im = cv2.imread(impath) # (480, 640, 3)
         if gray:
             imGray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
             im = cv2.cvtColor(imGray, cv2.COLOR_GRAY2BGR)
+        im = cv2.resize(im, target_size)  # Resize the image
         im = im[:, :, ::-1] # Convert from BGR to RGB
         assert im.dtype == final_images.dtype
-        final_images[idx] = im
+        # im = cv2.resize(im, (image_size_w, image_size_h))
+
+        final_images[idx] = im #(640, 480, 3)   HERE: # ValueError: could not broadcast input array from shape (480,640,3) into shape (640,480,3)
     return final_images
 
 def get_fid(path1,path2,batch_size,use_multiprocessing = True):
@@ -280,7 +301,9 @@ if __name__ == "__main__":
     assert options.path1 is not None, "--path1 is an required option"
     assert options.path2 is not None, "--path2 is an required option"
     assert options.batch_size is not None, "--batch_size is an required option"
-    images1 = load_images(options.path1)
-    images2 = load_images(options.path2,gray=options.gray_mode)
-    fid_value = calculate_fid(images1, images2, options.use_multiprocessing, options.batch_size)
-    print(fid_value)
+    # images1 = load_images(options.path1)
+    # images2 = load_images(options.path2,gray=options.gray_mode)
+    images1_new = load_images('dataset\coco-2017\\train\data\\')
+    images2_new = load_images('dataset\coco-2017\\train\data\\') # generated images # gray=options.gray_mode
+    fid_value = calculate_fid(images1_new, images2_new, options.use_multiprocessing, options.batch_size)
+    print('FID SCORE: ', fid_value)

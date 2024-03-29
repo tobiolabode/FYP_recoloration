@@ -30,7 +30,7 @@ def get_yaml(dir,name):
 def parse_images(dir):
     print("dir is: ", dir)
     dir = osp.expanduser(dir)
-    dir_analogy = osp.join(dir,"pairs/analogies") #pairs/analogies
+    dir_analogy = osp.join(dir,"pairs/analogies")
     print('dir_analogy:', dir_analogy)
     # gray_dict = get_yaml(dir,"gray_imgs.yaml") # OG
     gray_dict = get_yaml(dir,"gray_imgs_test.yaml") # dataset\coco-2017\gray_imgs_test.yaml

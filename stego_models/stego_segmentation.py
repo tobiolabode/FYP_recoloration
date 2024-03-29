@@ -76,7 +76,7 @@ class STEGO_seg():
 
     def my_app(self,img,mode_unsupervised = True,cmp=False):
         with torch.no_grad():
-            print('torch.no_grad')
+            print('Stego_segmentation.py: torch.no_grad')
             if img.shape[-1]!=256 or img.shape[-2]!=256:
                 _img = F.interpolate(img, [256,256], mode='bilinear', align_corners=False)
                 feats, code = self.par_model(_img)

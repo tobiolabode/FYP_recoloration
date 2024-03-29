@@ -11,6 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.utilities.seed import seed_everything
 from tqdm import tqdm
 
+# Generate Refenance similarity here?!?!?!?!
 
 def get_feats(model, loader):
     all_feats = []

@@ -2,6 +2,11 @@
 This is the implementation for  [SPCOLOR: Semantic-prior Guided Exemplar-based Image Colorization](https://arxiv.org/abs/2304.06255). 
 
 
+# Notes for me
+ColorVid: Deep exemplar-based video colorization
+
+
+
 **training**
 
 ```

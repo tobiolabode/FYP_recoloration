@@ -1,6 +1,12 @@
 import random
 import numpy as np
 import yaml
+import torch
+import torchvision.models as models
+import torchvision.transforms as transforms
+from PIL import Image
+from scipy.spatial.distance import cosine
+from pathlib import Path
 
 
 def load_yaml(file_path):
@@ -56,9 +62,53 @@ print(analogies_groups)
 #     # ... more groups
 # ])
 
+## NEW VER WITH SIMAILAITY
+def load_vgg19_gray_model():
+    # Load the VGG-19 model pre-trained on ImageNet
+    model = models.vgg19(pretrained=True)
+    # Modify the first layer to accept grayscale input, if necessary
+    # model.features[0] = torch.nn.Conv2d(1, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    model.eval()  # Set the model to evaluation mode
+    return model
+
+
+def extract_features(model, image_path):
+    # Image preprocessing
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    image = Image.open(image_path).convert("L")  # Convert image to grayscale
+    image = transform(image).unsqueeze(0)  # Add batch dimension
+
+    with torch.no_grad():
+        features = model(image)
+    return features
+
+
+def compute_similarity(feature1, feature2):
+    # Assuming feature1 and feature2 are numpy arrays
+    return 1 - cosine(feature1, feature2)
+
+def generate_reference_pairs(images_dir, model):
+    # Your logic here to implement steps 2 to 4
+    pass
+
+
+
+
 
 # Save this array to a '.npy' file
 np.save('.\dataset\coco-2017\\analogies_new.npy', analogies_groups)
 
 # # Save this array to a '.npy' file
 # np.save('analogies.npy', analogies_data)
+
+
+# # Main
+# if __name__ == "__main__":
+#     model = load_vgg19_gray_model()
+#     images_dir = './dataset/coco-2017'  # Example path, adjust as needed
+#     generate_reference_pairs(images_dir, model)
