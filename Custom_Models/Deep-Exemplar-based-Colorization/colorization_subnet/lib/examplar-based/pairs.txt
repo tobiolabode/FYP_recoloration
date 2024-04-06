@@ -1,0 +1,2 @@
+in1.JPEG ref1.JPEG 1
+in2.JPEG ref2.JPEG 1
