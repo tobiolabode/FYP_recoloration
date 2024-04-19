@@ -12,7 +12,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transform_lib
-from torch.utils.data import ConcatDataset, DataLoader, WeightedRandomSampler
+from torch.utils.data import ConcatDataset, DataLoader, WeightedRandomSampler, RandomSampler
 from torchvision.transforms import CenterCrop
 import torch.nn.functional as F
 
@@ -403,19 +403,21 @@ def load_data_imagenet10k():
             )
 
     #imagenet_training_length = len(train_dataset_imagenet)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
+    train_sampler = RandomSampler(train_dataset_imagenet)
+
 
     data_loader = DataLoader(
         train_dataset_imagenet,
         batch_size=opt.batch_size + 6,
         shuffle=False,
-        num_workers=opt.workers,
+        # num_workers=opt.workers,
         pin_memory=False,
         drop_last=False,
-        worker_init_fn = worker_init_fn,
+        # worker_init_fn = worker_init_fn,
         sampler = train_sampler,
     )
-    return  data_loader
+    return data_loader
 
 def define_loss():									 #定义loss
     if local_rank==0:
@@ -1091,15 +1093,16 @@ def validate():
                     # I_current_rgb_ori = lab2rgb_transpose_mc(I_current_l[i], I_current_ab[i])
                     # save_frames(I_current_rgb_ori, "/dataset/ImageNet_val/val_10000/croped_imgs", image_name = namelist[i])
     
-        torch.distributed.barrier()
-        if dist.get_rank()==0:
-            fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
+        # torch.distributed.barrier()
+        if local_rank==0:
+            # fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
+            fid = get_fid(os.path.join(opt.data_root_imagenet10k),val_output_path,8)
             print("fid:",fid)
             top1,top5 = get_top1_5(val_output_path)
         else:
             top1,top5 = [0,0]
             fid = 0
-        torch.distributed.barrier()
+        # torch.distributed.barrier()
     # except ChildFailedError as e:
     #     print("ChildFatherError: --fid--")
     #     print(e)

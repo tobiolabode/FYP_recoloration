@@ -245,12 +245,20 @@ def load_images(path, target_size=None, gray=False):
     Returns:
         final_images: np.array of image dtype and shape.
     """
+    # dataset\coco-2017\imgs\train\data
+    new_path = r'dataset\coco-2017\imgs\train\data'
+
     image_paths = []
-    image_extensions = ["png", "jpg"]
+    image_extensions = ["png", "jpg", "JPEG"]
+    print(f'load_images_path: {path}')
+    print(f'image_paths: {image_paths}')
+    import pdb; breakpoint()
     for ext in image_extensions:
-        print("Looking for images in", os.path.join(path, "*.{}".format(ext)))
-        for impath in glob.glob(os.path.join(path, "*.{}".format(ext))):
-            image_paths.append(impath)
+        # Looking for images in ./dataset/coco-2017/*.jpg
+        print("Looking for images in", os.path.join(new_path, "*.{}".format(ext)))
+        for impath in glob.glob(os.path.join(new_path, "*.{}".format(ext))):
+            print(f'impath {impath}')
+            image_paths.append(impath) # *** IndexError: list index out of range
     first_image = cv2.imread(image_paths[0])
     W, H = first_image.shape[:2]
     image_paths.sort()

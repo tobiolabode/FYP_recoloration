@@ -228,21 +228,47 @@ class VideosDataset_ImageNet(data.Dataset):
         return self.real_len#len(self.image_pairs)
 
 
-def parse_images_10k(dir):  #refs in folder
-    #print("dir is: ", dir)
-    dir = osp.expanduser(dir)
-    dir_imgs = osp.join(dir,"imgs")
-    dir_refs = osp.join(dir,"refs")
-    image_pairs = []
-    #ref_order-=1
+# def parse_images_10k(dir):  #refs in folder
+#     print("dir is: ", dir)
+#     # dir = osp.expanduser(dir)
+#     dir_imgs = osp.join(dir,"imgs_2")
+#     dir_refs = osp.join(dir,"refs")
+#     image_pairs = []
+#     #ref_order-=1
 
-    imgs = sorted(glob.glob(os.path.join(dir_imgs, '*.JPEG')))
-    ref_dirs = sorted(os.listdir(dir_refs))
-    for i in range(len(imgs)):
-        ref_imgs = sorted(glob.glob(os.path.join(dir_refs,ref_dirs[i], '*.JPEG')))
-        item0 =  (osp.basename(imgs[i]), imgs[i],ref_imgs)
+#     imgs = sorted(glob.glob(os.path.join(dir_imgs, '*.jpg')))
+#     ref_dirs = sorted(os.listdir(dir_refs))
+#     print(f'imgs: {imgs}')
+#     print(f'ref_dirs: {ref_dirs}')
+#     for i in range(len(imgs)):
+#         # ref_imgs = sorted(glob.glob(os.path.join(dir_refs,ref_dirs[i], '*.JPEG')))
+#         ref_imgs = sorted(glob.glob(os.path.join(dir_refs, ref_dirs[i], '*.JPEG')) + glob.glob(os.path.join(dir_refs, ref_dirs[i], '*.jpg')))
+#         print(f'ref_imgs_sorted: {ref_imgs}')
+#         item0 =  (osp.basename(imgs[i]), imgs[i],ref_imgs)
+#         print(f'item0: {item0}')
+#         image_pairs.append(item0)
+#         print(f'image_pairs: {image_pairs}')
+#     return image_pairs
+
+def parse_images_10k(dir):  # refs in folder
+    print("dir is: ", dir)
+    dir_imgs = osp.join(dir, "imgs_2")
+    dir_refs = osp.join(dir, "refs")
+    image_pairs = []
+
+    imgs = sorted(glob.glob(os.path.join(dir_imgs, '*.jpg')))
+    ref_imgs = sorted(glob.glob(os.path.join(dir_refs, '*.JPEG')) + glob.glob(os.path.join(dir_refs, '*.jpg')))
+    print(f'imgs: {imgs}')
+    print(f'ref_imgs: {ref_imgs}')
+    
+    # Assuming each img has a corresponding ref_img
+    for img, ref_img in zip(imgs, ref_imgs):
+        item0 = (osp.basename(img), img, [ref_img])
+        print(f'item0: {item0}')
         image_pairs.append(item0)
+    
     return image_pairs
+
 
 
 def parse_images_wild(dir):   #refs not in folder
