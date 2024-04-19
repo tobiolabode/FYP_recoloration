@@ -40,3 +40,5 @@ Custom_Models/Deep-Exemplar-based-Colorization/demo/models/deep_image_analogy/vg
 Custom_Models/Deep-Exemplar-based-Colorization/demo/models/similarity_subnet/vgg_19_gray_bn/deploy.prototxt
 Custom_Models/Deep-Exemplar-based-Colorization/demo/run.bat
 Custom_Models/Deep-Exemplar-based-Colorization/colorization_subnet/tempCodeRunnerFile.py
+dataset/coco-2017/imgs/train/labels.json
+tempCodeRunnerFile.py
