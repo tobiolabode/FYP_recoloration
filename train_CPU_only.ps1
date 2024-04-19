@@ -1,1 +1,1 @@
-python train_stego_CPU_ONLY.py --val_only
+python train_stego_CPU_ONLY.py --val_only VAL_ONLY

@@ -46,6 +46,12 @@ def parse_images(dir):
     for i in range(len(analogies)):
         analogy_path = analogies[i]
         analogy = np.load(analogy_path,mmap_mode = 'r')
+        print(f"yamls: {mono_dict} - analogy_path {analogy_path}")
+        temp_debug = analogy_path.split("analogies\\")[1]
+        print(f'analogy_path.split("analogies")[1]: {temp_debug}')
+        print('len(analogies): ', len(analogies))
+        # analogy_path.split("analogies")[0]: .\dataset\coco-2017\pairs/
+        # analogy_path.split("analogies")[1]: analogies_new.npy
         analogy_path = analogy_path.split("analogies\\")[1]
         #print("yamls:",mono_dict,"analogy_path",analogy_path)
         bad_list = list(set(gray_dict[analogy_path])) # using for temp use to run script first
