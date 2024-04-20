@@ -47,8 +47,8 @@ def parse_images(dir):
         analogy_path = analogies[i]
         analogy = np.load(analogy_path,mmap_mode = 'r')
         print(f"yamls: {mono_dict} - analogy_path {analogy_path}")
-        temp_debug = analogy_path.split("analogies\\")[1]
-        print(f'analogy_path.split("analogies")[1]: {temp_debug}')
+        # temp_debug = analogy_path.split("analogies\\")[1]
+        # print(f'analogy_path.split("analogies")[1]: {temp_debug}')
         print('len(analogies): ', len(analogies))
         # analogy_path.split("analogies")[0]: .\dataset\coco-2017\pairs/
         # analogy_path.split("analogies")[1]: analogies_new.npy
