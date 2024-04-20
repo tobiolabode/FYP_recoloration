@@ -1187,7 +1187,7 @@ if __name__ == "__main__":
     instancenorm = nn.InstanceNorm2d(512, affine=False)
 
     vggnet = VGG19_pytorch()
-    vggnet.load_state_dict(torch.load("C:\\Users\\tnint\\Coding\\Side_projects\\spcolor\\dataset\\checkpoints\\spcolor\\checkpoints\\video_moredata_l1\\vgg19_conv.pth",map_location='cpu'))
+    vggnet.load_state_dict(torch.load("/content/FYP_recoloration/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/vgg19_conv.pth", map_location='cpu'))
     vggnet.eval()																							  #加载VGG19并固定参数
     for param in vggnet.parameters():
         param.requires_grad = False
