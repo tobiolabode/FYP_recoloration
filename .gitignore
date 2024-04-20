@@ -15,7 +15,6 @@ dataset/coco-2017/raw/instances_val2017.json
 dataset/coco-2017/raw/person_keypoints_train2017.json
 dataset/coco-2017/raw/person_keypoints_val2017.json
 dataset/coco-2017/train/labels.json
-l
 Custom_Models/Deep-Exemplar-based-Colorization/demo/exe/cublas64_80.dll
 Custom_Models/Deep-Exemplar-based-Colorization/demo/exe/cudart64_80.dll
 Custom_Models/Deep-Exemplar-based-Colorization/demo/exe/cudnn64_5.dll
@@ -41,5 +40,4 @@ Custom_Models/Deep-Exemplar-based-Colorization/demo/models/similarity_subnet/vgg
 Custom_Models/Deep-Exemplar-based-Colorization/demo/run.bat
 Custom_Models/Deep-Exemplar-based-Colorization/colorization_subnet/tempCodeRunnerFile.py
 dataset/coco-2017/imgs/train/labels.json
-tempCodeRunnerFile.py
-tempCodeRunnerFile.py
+models\tempCodeRunnerFile.py
