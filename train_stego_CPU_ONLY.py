@@ -633,7 +633,7 @@ def resume_model():									   #继续学习 ，加载参数
 
         target_discriminator_path = f"{opt.checkpoint_dir}discriminator_iter_{total_iter}_newkeys.pth"
         new_checkpoint_discriminator = target_discriminator_path
-        new_new_discriminator_path = "C:\\Users\\tnint\\Coding\\Side_projects\\spcolor\\dataset\\checkpoints\\spcolor\\checkpoints\\video_moredata_l1\\discriminator_iter_76000.pth"
+        new_new_discriminator_path = "/content/FYP_recoloration/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/discriminator_iter_76000.pth"
         temp_discriminator_path = os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter)
 
         loaded_state_dict = torch.load(new_new_discriminator_path, map_location=torch.device('cpu'))
