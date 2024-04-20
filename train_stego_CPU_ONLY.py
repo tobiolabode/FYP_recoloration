@@ -1163,9 +1163,9 @@ if __name__ == "__main__":
 
     # define network																					       #network
     print('device before warpnet: ', device)
-    print('torch.cuda.is_available()', torch.cuda.is_available())
-    print('torch.cuda.current_device()', torch.cuda.current_device())
-    print('torch.cuda.get_device_name(0)', torch.cuda.get_device_name(0))
+    # print('torch.cuda.is_available()', torch.cuda.is_available())
+    # print('torch.cuda.current_device()', torch.cuda.current_device())
+    # print('torch.cuda.get_device_name(0)', torch.cuda.get_device_name(0))
     nonlocal_net = WarpNet(opt.batch_size) # CUDA error here
     #  size mismatch for theta_class.weight: copying a param with shape torch.Size([256, 256, 1, 1]) from checkpoint, the 
     # shape in current model is torch.Size([256, 256]).

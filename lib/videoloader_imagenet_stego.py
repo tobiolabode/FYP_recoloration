@@ -52,7 +52,7 @@ def parse_images(dir):
         print('len(analogies): ', len(analogies))
         # analogy_path.split("analogies")[0]: .\dataset\coco-2017\pairs/
         # analogy_path.split("analogies")[1]: analogies_new.npy
-        analogy_path = analogy_path.split("analogies\\")[1]
+        analogy_path = analogy_path.split("analogies/")[1] # coloab ver
         #print("yamls:",mono_dict,"analogy_path",analogy_path)
         bad_list = list(set(gray_dict[analogy_path])) # using for temp use to run script first
         # bad_list_OG = list(set(gray_dict[analogy_path]+small_dict[analogy_path]+mono_dict[analogy_path]+error_dict[analogy_path]))

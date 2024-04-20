@@ -41,7 +41,7 @@ class STEGO_seg():
         if post cluster, use cluster label to map the semantic class after classificatio to 27 classes.
         if pre cluster, use new cluster center for classification.
         '''
-        model = LitUnsupervisedSegmenter.load_from_checkpoint("C:\\Users\\tnint\\Coding\\Side_projects\\spcolor\\dataset\\checkpoints\\spcolor\\checkpoints\\cocostuff27_vit_base_5.ckpt")
+        model = LitUnsupervisedSegmenter.load_from_checkpoint("/content/FYP_recoloration/dataset/checkpoints/spcolor/checkpoints/cocostuff27_vit_base_5.ckpt") # for colab
         # How to load this model that does not exist?
         # the weights of model maybe GPU mode?????
         #model.eval()
