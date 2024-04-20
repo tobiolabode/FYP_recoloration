@@ -252,7 +252,7 @@ def load_images(path, target_size=None, gray=False):
     image_extensions = ["png", "jpg", "JPEG"]
     print(f'load_images_path: {path}')
     print(f'image_paths: {image_paths}')
-    import pdb; breakpoint()
+    # import pdb; breakpoint()
     for ext in image_extensions:
         # Looking for images in ./dataset/coco-2017/*.jpg
         print("Looking for images in", os.path.join(new_path, "*.{}".format(ext)))
