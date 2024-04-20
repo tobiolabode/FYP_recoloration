@@ -260,6 +260,7 @@ def load_images(path, target_size=None, gray=False):
             print(f'impath {impath}')
             image_paths.append(impath) # *** IndexError: list index out of range
     first_image = cv2.imread(image_paths[0])
+    print(f'image_paths: {image_paths}')
     W, H = first_image.shape[:2]
     image_paths.sort()
     image_paths = image_paths
@@ -267,7 +268,8 @@ def load_images(path, target_size=None, gray=False):
     if target_size is None:
         target_size = first_image.shape[1], first_image.shape[0]
     
-    final_images = np.zeros((len(image_paths), W, H, 3), dtype=first_image.dtype) #  final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
+    # final_images = np.zeros((len(image_paths), W, H, 3), dtype=first_image.dtype) #  final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
+    final_images = np.zeros((len(image_paths), image_size_h, image_size_w, 3), dtype=first_image.dtype) # leads to wrong FID score numbers though
    
     for idx, impath in enumerate(image_paths):
         im = cv2.imread(impath) # (480, 640, 3)
@@ -278,6 +280,9 @@ def load_images(path, target_size=None, gray=False):
         im = im[:, :, ::-1] # Convert from BGR to RGB
         assert im.dtype == final_images.dtype
         # im = cv2.resize(im, (image_size_w, image_size_h))
+        print(f'final_images[idx].shape: {final_images[idx].shape}')
+        print(f'final_images.shape: {final_images.shape}')
+        print(f'im.shape: {im.shape}')
 
         final_images[idx] = im #(640, 480, 3)   HERE: # ValueError: could not broadcast input array from shape (480,640,3) into shape (640,480,3)
     return final_images
