@@ -105,7 +105,7 @@ def get_top1_5(path,batch_size=32,num_workers=4,image_size=224):
     resnet = models.resnet101(pretrained=True)
     # Second, put the network in eval mode
     resnet.eval()
-    resnet.cuda()
+    # resnet.cuda()
     class_path = "utils/class_gt.npy"
     classes_gt = got_saved_gt_classes(class_path)
     top_1=0
