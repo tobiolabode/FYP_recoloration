@@ -246,8 +246,9 @@ def load_images(path, target_size=None, gray=False):
         final_images: np.array of image dtype and shape.
     """
     # dataset\coco-2017\imgs\train\data
-    new_path = r'dataset\coco-2017\imgs\train\data'
-
+    # new_path = r'dataset\coco-2017\imgs\train\data'
+    new_path = 'content/FYP_recoloration/dataset/coco-2017/imgs/train/data/'
+    # /content/FYP_recoloration/dataset/coco-2017/imgs/train/data
     image_paths = []
     image_extensions = ["png", "jpg", "JPEG"]
     print(f'load_images_path: {path}')
@@ -270,6 +271,7 @@ def load_images(path, target_size=None, gray=False):
     
     # final_images = np.zeros((len(image_paths), W, H, 3), dtype=first_image.dtype) #  final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
     final_images = np.zeros((len(image_paths), image_size_h, image_size_w, 3), dtype=first_image.dtype) # leads to wrong FID score numbers though
+    # get testing folder
    
     for idx, impath in enumerate(image_paths):
         im = cv2.imread(impath) # (480, 640, 3)
@@ -279,7 +281,7 @@ def load_images(path, target_size=None, gray=False):
         im = cv2.resize(im, target_size)  # Resize the image
         im = im[:, :, ::-1] # Convert from BGR to RGB
         assert im.dtype == final_images.dtype
-        # im = cv2.resize(im, (image_size_w, image_size_h))
+        im = cv2.resize(im, (image_size_w, image_size_h))
         print(f'final_images[idx].shape: {final_images[idx].shape}')
         print(f'final_images.shape: {final_images.shape}')
         print(f'im.shape: {im.shape}')
