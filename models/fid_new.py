@@ -247,7 +247,7 @@ def load_images(path, target_size=None, gray=False):
     """
     # dataset\coco-2017\imgs\train\data
     # new_path = r'dataset\coco-2017\imgs\train\data'
-    new_path = 'content/FYP_recoloration/dataset/coco-2017/imgs/train/data/'
+    new_path = '/content/FYP_recoloration/dataset/coco-2017/imgs/train/data'
     # /content/FYP_recoloration/dataset/coco-2017/imgs/train/data
     image_paths = []
     image_extensions = ["png", "jpg", "JPEG"]
