@@ -67,6 +67,7 @@ if __name__ == '__main__':
         print(f"orig_im_l shape: {orig_im_l.shape}")
         print(f"orig_warped_ba[:, 1:, ...] shape: {orig_warped_ba[:, 1:, ...].shape}")
         out_name = test_dataset.get_out_name(iter)
+        print(f'out_name: {out_name}')
         basename, ext = os.path.splitext(os.path.basename(out_name))
         print('testing for [%d/%d] %s ' % (iter, len(test_dataset), out_name))
 
