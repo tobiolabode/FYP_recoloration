@@ -1,2 +1,3 @@
 in1.JPEG ref1.JPEG 1
 in2.JPEG ref2.JPEG 1
+Dickens-and-Victorian-Greenwich-7-300x228.jpg ref3.JPEG 1
