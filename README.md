@@ -1,12 +1,10 @@
-# SPCOLOR: Semantic-prior Guided Exemplar-based Image Colorization
-This is the implementation for  [SPCOLOR: Semantic-prior Guided Exemplar-based Image Colorization](https://arxiv.org/abs/2304.06255). The repo also has the other models including Deep exemplar-based video colorization and Grey2Embed for testing across the model. The goal of this final year project is implment a time adjustment technique for the existing SPCOLOUR project. 
+# (Time-Adjusted) SPCOLOR: Semantic-prior Guided Exemplar-based Image Colorization
+This is the implementation for  [SPCOLOR: Semantic-prior Guided Exemplar-based Image Colorization](https://arxiv.org/abs/2304.06255). The repo also has the other models including Deep exemplar-based video colorization and Grey2Embed for testing across the model. The goal of this final-year project is to implement a time adjustment technique for the existing SPCOLOUR project. 
 
-This code is ran via CPU, due to technical reasons. That's an area of further research 
-
+This code is run via CPU, due to technical reasons. That's an area of further research.
 
 # Shorthand used throughout the code and report
 ColorVid: Deep exemplar-based video colorization
-
 
 **testing**
 
