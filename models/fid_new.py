@@ -316,9 +316,10 @@ if __name__ == "__main__":
     assert options.path1 is not None, "--path1 is an required option"
     assert options.path2 is not None, "--path2 is an required option"
     assert options.batch_size is not None, "--batch_size is an required option"
-    # images1 = load_images(options.path1)
-    # images2 = load_images(options.path2,gray=options.gray_mode)
-    images1_new = load_images('dataset\coco-2017\\train\data\\')
-    images2_new = load_images('dataset\coco-2017\\train\data\\') # generated images # gray=options.gray_mode
-    fid_value = calculate_fid(images1_new, images2_new, options.use_multiprocessing, options.batch_size)
+    images1 = load_images(options.path1)
+    images2 = load_images(options.path2,gray=options.gray_mode)
+    # images1_new = load_images('dataset\coco-2017\\train\data\\')
+    # images2_new = load_images('dataset\coco-2017\\train\data\\') # generated images # gray=options.gray_mode
+    # fid_value = calculate_fid(images1_new, images2_new, options.use_multiprocessing, options.batch_size)
+    fid_value = calculate_fid(images1, images2, options.use_multiprocessing, options.batch_size)
     print('FID SCORE: ', fid_value)
