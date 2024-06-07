@@ -107,7 +107,8 @@ parser.add_argument("--permute_data", type=bool, default=True)
 parser.add_argument("--contextual_loss_direction", type=str, default="forward", help="forward or backward matching")
 parser.add_argument("--use_masked_percept", type=bool, default=True)
 # parser.add_argument('--local_rank', default=-1, type=int,help='node rank for distributed training')
-local_rank = int(os.environ["LOCAL_RANK"])
+# local_rank = int(os.environ["LOCAL_RANK"])
+local_rank = 0
 # local_rank = 0 #temp for CPU usage
 print('local_rank', local_rank)
 # print('--gpu_ids: ', gpu_ids)
@@ -327,7 +328,7 @@ def load_data_imagenet():
     )
 
     #imagenet_training_length = len(train_dataset_imagenet)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
 
     data_loader = DataLoader(
         train_dataset_imagenet,
@@ -337,7 +338,7 @@ def load_data_imagenet():
         pin_memory=False,
         drop_last=True,
         worker_init_fn = worker_init_fn,
-        sampler = train_sampler,
+        sampler = None,
     )
     return train_dataset_imagenet.real_len, data_loader
 
@@ -527,12 +528,12 @@ def resume_model():									   #继续学习 ，加载参数
                                                         # Unexpected key(s) in state_dict: "theta.weight", "theta.bias", "phi.weight", "phi.bias".
         # rename state dict for our model????
         # See here: https://gist.github.com/the-bass/0bf8aaa302f9ba0d26798b11e4dd73e3
-        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "colornet_iter_%d.pth" % total_iter),map_location='cpu')
+        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "colornet_iter_%d.pth" % total_iter), map_location='cpu')
         colornet.module.load_state_dict(checkpoint)
-        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter),map_location='cpu')
+        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter), map_location='cpu')
         discriminator.module.load_state_dict(checkpoint)
     else:
-        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "learning_checkpoint.pth"),map_location='cpu')
+        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "learning_checkpoint.pth"), map_location='cpu')
         total_iter = checkpoint["total_iter"]
         epoch = checkpoint["epoch"]
         colornet.module.load_state_dict(checkpoint["colornet_state"])
@@ -563,6 +564,66 @@ def to_device_CPU(
     colornet = colornet.to(device)
     nonlocal_net = nonlocal_net.to(device)
     discriminator = discriminator.to(device)
+
+def to_device_GPU(
+    colornet,
+    nonlocal_net,
+    discriminator,
+    vggnet,
+    contextual_loss,
+    contextual_forward_loss,
+    weighted_layer_color,
+    nonlocal_weighted_layer,
+    instancenorm,
+    downsampling_by2,
+    stego 
+):
+    print('GPU-device: ', device)
+    # add assert statement forcing GPU-mode!
+
+    models = {
+        "colornet": colornet,
+        "nonlocal_net": nonlocal_net,
+        "discriminator": discriminator,
+        "vggnet": vggnet,
+        "contextual_loss": contextual_loss,
+        "contextual_forward_loss": contextual_forward_loss,
+        "weighted_layer_color": weighted_layer_color,
+        "nonlocal_weighted_layer": nonlocal_weighted_layer,
+        "instancenorm": instancenorm,
+        "downsampling_by2": downsampling_by2,
+        "stego": stego
+    }
+    
+    for name, model in models.items():
+        if model is None:
+            raise ValueError(f"The model {name} is None. Please check the initialization of this model.")
+    
+    colornet = colornet.to(device)
+    nonlocal_net = nonlocal_net.to(device)
+    discriminator = discriminator.to(device)
+    vggnet = vggnet.to(device)
+    contextual_loss = contextual_loss.to(device)
+    contextual_forward_loss = contextual_forward_loss.to(device)
+    weighted_layer_color = weighted_layer_color.to(device)
+    nonlocal_weighted_layer = nonlocal_weighted_layer.to(device)
+    instancenorm = instancenorm.to(device)
+
+    # Returning the updated models
+    return (
+        colornet,
+        nonlocal_net,
+        discriminator,
+        vggnet,
+        contextual_loss,
+        contextual_forward_loss,
+        weighted_layer_color,
+        nonlocal_weighted_layer,
+        instancenorm,
+        downsampling_by2,
+        stego
+    )
+
     
 
 
@@ -989,7 +1050,7 @@ if __name__ == "__main__":
     # dist set - disable for CPU mode
     torch.cuda.set_device(local_rank) # local_rank disable for CPU-mode 
     # turn of for CPU mode debugging
-    dist.init_process_group(backend='gloo') #gloo for windows
+    # dist.init_process_group(backend='gloo') #gloo for windows
    
     #opt.data_root = opt.data_root.split(",")[0]
     #opt.data_root_imagenet = opt.data_root_imagenet.split(",")[0]											   #make dir
@@ -999,7 +1060,8 @@ if __name__ == "__main__":
     #mkdir_if_not("./runs/")
 
     # device = gpu_setup_DDP()
-    device = torch.device('cpu')
+    # device = torch.device('cpu')
+    device = torch.device('cuda')
     # HOW TO TURN OFF GPU??!?
     # device = torch.device('cuda:0')
     print('device', device)
@@ -1008,11 +1070,18 @@ if __name__ == "__main__":
     # device = torch.device ('cuda' if torch.cuda.is_available () else 'cpu')
     dataset_real_len, data_loader = load_data_imagenet()			   #load data
     iter_num_per_epoch = len(data_loader) #// opt.batch_size
-    if dist.get_rank() == 0:
+
+    if local_rank == 0:
         tb_writer = SummaryWriter(log_path=opt.log_path)
         data_queue = queue.Queue()
         tb_image_reorder = TBImageRecorder(tb_writer, image_logger_fn, data_queue)
         tb_image_reorder.start()
+
+    # if dist.get_rank() == 0:
+    #     tb_writer = SummaryWriter(log_path=opt.log_path)
+    #     data_queue = queue.Queue()
+    #     tb_image_reorder = TBImageRecorder(tb_writer, image_logger_fn, data_queue)
+    #     tb_image_reorder.start()
 
     # define network																						       #network
     nonlocal_net = WarpNet(opt.batch_size) # CUDA error here
@@ -1094,20 +1163,62 @@ if __name__ == "__main__":
     #     discriminator_loss,
     # ) = loss_init()
 
-    # move to CPU processing
-    (
-        vggnet,
-        nonlocal_net,
-        colornet,
-        discriminator,
-        instancenorm,
-        contextual_loss,
-        contextual_forward_loss,
-        weighted_layer_color,
-        nonlocal_weighted_layer,
-        downsampling_by2,
-        stego
-    ) = to_device_CPU(
+    # # move to CPU processing
+    # (
+    #     vggnet,
+    #     nonlocal_net,
+    #     colornet,
+    #     discriminator,
+    #     instancenorm,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     downsampling_by2,
+    #     stego
+    # ) = to_device_CPU(
+    #     colornet,
+    #     nonlocal_net,
+    #     discriminator,
+    #     vggnet,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     instancenorm,
+    #     downsampling_by2,
+    #     stego
+    # )
+
+    # move to GPU processing
+    
+    # (
+    #     vggnet,
+    #     nonlocal_net,
+    #     colornet,
+    #     discriminator,
+    #     instancenorm,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     downsampling_by2,
+    #     stego
+    # ) = to_device_GPU(
+    #     colornet,
+    #     nonlocal_net,
+    #     discriminator,
+    #     vggnet,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     instancenorm,
+    #     downsampling_by2,
+    #     stego
+    # )
+
+    to_device_results = to_device_GPU(
         colornet,
         nonlocal_net,
         discriminator,
@@ -1120,6 +1231,90 @@ if __name__ == "__main__":
         downsampling_by2,
         stego
     )
+
+    if colornet is not None:
+        print("colornet:", 'YES')
+    else:
+        print("colornet:", 'NO')
+
+    if nonlocal_net is not None:
+        print("nonlocal_net:", 'YES')
+    else:
+        print("nonlocal_net:", 'NO')
+
+    if discriminator is not None:
+        print("discriminator:", 'YES')
+    else:
+        print("discriminator:", 'NO')
+
+    if vggnet is not None:
+        print("vggnet:", 'YES')
+    else:
+        print("vggnet:", 'NO')
+
+    if contextual_loss is not None:
+        print("contextual_loss:", 'YES')
+    else:
+        print("contextual_loss:", 'NO')
+
+    if contextual_forward_loss is not None:
+        print("contextual_forward_loss:", 'YES')
+    else:
+        print("contextual_forward_loss:", 'NO')
+
+    if weighted_layer_color is not None:
+        print("weighted_layer_color:", 'YES')
+    else:
+        print("weighted_layer_color:", 'NO')
+
+    if nonlocal_weighted_layer is not None:
+        print("nonlocal_weighted_layer:", 'YES')
+    else:
+        print("nonlocal_weighted_layer:", 'NO')
+
+    if instancenorm is not None:
+        print("instancenorm:", 'YES')
+    else:
+        print("instancenorm:", 'NO')
+
+    if downsampling_by2 is not None:
+        print("downsampling_by2:", 'YES')
+    else:
+        print("downsampling_by2:", 'NO')
+
+    if stego is not None:
+        print("stego:", 'YES')
+    else:
+        print("stego:", 'NO')
+
+    # print(colornet,
+    #     nonlocal_net,
+    #     discriminator,
+    #     vggnet,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     instancenorm,
+    #     downsampling_by2,
+    #     stego)
+
+    if to_device_results is None:
+        raise RuntimeError("to_device_GPU function returned None. Please check the function implementation.")
+
+    (
+        colornet,
+        nonlocal_net,
+        discriminator,
+        vggnet,
+        contextual_loss,
+        contextual_forward_loss,
+        weighted_layer_color,
+        nonlocal_weighted_layer,
+        instancenorm,
+        downsampling_by2,
+        stego
+    ) = to_device_results
 
     (
         feat_loss,

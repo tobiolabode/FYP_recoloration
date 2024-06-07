@@ -105,7 +105,6 @@ class Discriminator_x64(nn.Module):
     """
     Discriminative Network
     """
-
     def __init__(self, in_size=3, ndf=64):
         super(Discriminator_x64, self).__init__()
         self.in_size = in_size
@@ -154,6 +153,9 @@ class Discriminator_x64(nn.Module):
         feature6 = self.layer6(feature5)
         output = self.last_new(feature6)
         output = F.avg_pool2d(output, output.size()[2:]).view(output.size()[0], -1)
+        print('forward: Discriminator_x64 GAN')
+        print(f'output: {output.shape}')
+        print(f'feature4: {feature4.shape}')
 
         return output, feature4
 

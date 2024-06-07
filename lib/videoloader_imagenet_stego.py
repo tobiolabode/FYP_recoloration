@@ -24,13 +24,14 @@ def get_yaml(dir,name):
     gray_read=f_gray.read()
     gray_dict=yaml.load(gray_read, Loader=yaml.FullLoader) 
     #print("file in get:",gray_dict)
+    print(f'gray_dict: {gray_dict}')
     f_gray.close()
     return gray_dict
 
 def parse_images(dir):
     print("dir is: ", dir)
     dir = osp.expanduser(dir)
-    dir_analogy = osp.join(dir,"pairs/analogies")
+    dir_analogy = osp.join(dir,"pairs/analogies/active/")
     print('dir_analogy:', dir_analogy)
     # gray_dict = get_yaml(dir,"gray_imgs.yaml") # OG
     gray_dict = get_yaml(dir,"gray_imgs_test.yaml") # dataset\coco-2017\gray_imgs_test.yaml
@@ -44,28 +45,57 @@ def parse_images(dir):
     analogies = sorted(glob.glob(os.path.join(dir_analogy, '*.npy'))) # not generated yet?
     print('analogies', analogies)
     for i in range(len(analogies)):
-        analogy_path = analogies[i]
-        analogy = np.load(analogy_path,mmap_mode = 'r')
+        analogy_path = analogies[i] # FIX HERE
+        analogy = np.load(analogy_path, allow_pickle=True) # ValueError: Array can't be memory-mapped: Python objects in dtype: CUDA mode 
+        # OG: analogy = np.load(analogy_path, mmap_mode = 'r')
         print(f"yamls: {mono_dict} - analogy_path {analogy_path}")
-        temp_debug = analogy_path.split("analogies\\")[1]
-        print(f'analogy_path.split("analogies")[1]: {temp_debug}')
+        temp_debug = osp.relpath(analogy_path, dir_analogy)  # Get the relative path
+        print(f'osp.relpath(analogy_path, dir_analogy): {temp_debug}')
+
+        # temp_debug = analogy_path.split("analogies\\")[1]
+        # print(f'analogy_path.split("analogies")[1]: {temp_debug}')
         print('len(analogies): ', len(analogies))
         # analogy_path.split("analogies")[0]: .\dataset\coco-2017\pairs/
         # analogy_path.split("analogies")[1]: analogies_new.npy
-        analogy_path = analogy_path.split("analogies\\")[1]
+        
+        
+        analogy_path = temp_debug
+        # OG: analogy_path = analogy_path.split("analogies\\")[1]
+
+
         #print("yamls:",mono_dict,"analogy_path",analogy_path)
-        bad_list = list(set(gray_dict[analogy_path])) # using for temp use to run script first
+        # import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
+        try:
+            # bad_list = list({tuple(d.items()) for d in gray_dict[analogy_path]})
+            bad_list = list({tuple(d.items()) for d in gray_dict[analogy_path] + small_dict[analogy_path] + mono_dict[analogy_path] + error_dict[analogy_path]})
+            print(f'bad_list: {bad_list}')
+            # bad_list = list(set(gray_dict[analogy_path])) # using for temp use to run script first
+        except:
+            # gray_items = [tuple(sorted(d.items())) for d in gray_dict[analogy_path]]
+            # bad_list = list(set(gray_items))
+
+            combined_items = (gray_dict.get(analogy_path, []) + small_dict.get(analogy_path, []) +
+                              mono_dict.get(analogy_path, []) + error_dict.get(analogy_path, []))
+            combined_tuples = [tuple(sorted(d.items())) for d in combined_items]
+            bad_list = list(set(combined_tuples))
+            print(f'combined_items: {combined_items}')
+            # print(f'gray_items: {gray_items}')
+            print(f'bad_list: {bad_list}')
+        print(f'bad_list: {bad_list}')
         # bad_list_OG = list(set(gray_dict[analogy_path]+small_dict[analogy_path]+mono_dict[analogy_path]+error_dict[analogy_path]))
         for j in range(len(analogy)):
             pair = analogy[j]
-            if pair[5] in bad_list:
+            print('pair: ', pair)
+            print(f'pair count: {len(pair)}')
+            if pair[3] in bad_list: # OG 5
                 bad_num+=1
                 continue
-            for r in range(5):
+            for r in range(3):
                 if pair[r] in bad_list:
                     bad_num+=1
                     continue
-                item0 =  (dir, analogy_path, pair[r], pair[5], r)
+                item0 =  (dir, analogy_path, pair[r], pair[3], r) # OG pair[5]
                 #item1 =  (dir, analogy_path, pair[5], pair[r], 2)
                 image_pairs.append(item0)
                 #image_pairs.append(item1)
@@ -80,7 +110,10 @@ def parse_images(dir):
 
 
 def pil_loader(path):
-    img = Image.open(path)
+    print(f'PATH: {path}')
+    print('Absolute image path: ', os.path.abspath(path))
+    # import pdb; pdb.set_trace()
+    img = Image.open(path) # error here
     #if img.layers == 1:
     if len(img.getbands()) == 1:
         print("gray img in :",path)
@@ -171,18 +204,22 @@ class VideosDataset_ImageNet(data.Dataset):
             dir_root, cls_dir, image_names0, image_names1, is_good = self.image_pairs[pair_id]
 
             # image_a_path = osp.join(dir_root, "imgs", image_names0) OG #path join wrong here
-            image_a_path = osp.join(dir_root, "train\\data\\", image_names0) #path join wrong here
+            image_a_path = osp.join(dir_root, "imgs\\train\\data\\", image_names0) #path join wrong here
             print('image_a_path: ', image_a_path)
+            print('Absolute image_a_path: ', os.path.abspath(image_a_path))
+            # example: C:\Users\tnint\Coding\Side_projects\GitHub_Export\spcolor\dataset\coco-2017\imgs\train\data\000000000514.jpg
+            # C:\Users\tnint\Coding\Side_projects\GitHub_Export\spcolor\dataset\coco-2017\train\data\000000000514.jpg
+            # import pdb; pdb.set_trace()
             # wrong: './dataset/coco-2017/imgs\\000000000514.jpg'
             # create new folder imgs to store images following the file path. 
 
             # [Errno 2] No such file or directory: '.\\dataset\\coco-2017\\imgs\\000000000514.jpg'
             # image_b_path = osp.join(dir_root, "imgs", image_names1)
-            image_b_path = osp.join(dir_root, "train\\data\\", image_names1)
-
+            image_b_path = osp.join(dir_root, "imgs\\train\\data\\", image_names1)
+            print('image_b_path: ', image_b_path)
             # if np.random.random() > 0.5:
             #     image_a_path, image_b_path = image_b_path, image_a_path
-
+            # pdb.set_trace()
             I1,flag = pil_loader(image_a_path)
             if flag == 0:
                 print("gray img in:",image_a_path)

@@ -64,9 +64,9 @@ class STEGO_seg():
                 class_dict[cluster_mapping[i]]=i       # class_dict: {16: 0}
             else:
                 self.map_dict[i]=class_dict[cluster_mapping[i]]  # map_dict: {1:0}
-        print("cluster_mapping",cluster_mapping)
-        print("class_dict",class_dict)
-        print("map_dict",self.map_dict)
+        print("cluster_mapping", cluster_mapping.shape)
+        print("class_dict", len(class_dict))
+        print("map_dict", len(self.map_dict))
         return
     
     def post_cluster(self,cluster_preds):
@@ -76,6 +76,7 @@ class STEGO_seg():
 
     def my_app(self,img,mode_unsupervised = True,cmp=False):
         with torch.no_grad():
+            print('my_app stego_segmentation')
             print('Stego_segmentation.py: torch.no_grad')
             if img.shape[-1]!=256 or img.shape[-2]!=256:
                 _img = F.interpolate(img, [256,256], mode='bilinear', align_corners=False)
@@ -102,7 +103,9 @@ class STEGO_seg():
             # cluster_value = torch.ones_like(cluster_value)
             print('cluster_value: ', cluster_value.shape)
             print('cluster_preds: ', cluster_preds.shape)
-            return cluster_value ,cluster_preds
+            return cluster_value, cluster_preds
+        
+            # please active if needed
             # for j in range(img.shape[0]):
             #     #linear_crf = linear_probs[j].argmax(0)
             #     cluster_crf = cluster_probs[j].argmax(0)

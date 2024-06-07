@@ -1,3 +1,4 @@
+from datetime import datetime
 import random
 import numpy as np
 import yaml
@@ -32,6 +33,15 @@ analogies_groups = create_random_groups(image_identifiers)
 
 print(analogies_groups)
 
+current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+new_filename = f"analogies_new_{current_time}.npy"
+
+# Save this array to a '.npy' file
+np.save(f'.\dataset\coco-2017\\pairs\\analogies\\active\\analogies_new_{current_time}.npy', analogies_groups)
+
+# C:\Users\tnint\Coding\Side_projects\GitHub_Export\spcolor\dataset\coco-2017\pairs\analogies\active
 
 # # Function to create pairs of images (target, reference)
 # def create_image_pairs(analogies_groups):
@@ -98,10 +108,6 @@ def generate_reference_pairs(images_dir, model):
 
 
 
-
-
-# Save this array to a '.npy' file
-np.save('.\dataset\coco-2017\\analogies_new.npy', analogies_groups)
 
 # # Save this array to a '.npy' file
 # np.save('analogies.npy', analogies_data)

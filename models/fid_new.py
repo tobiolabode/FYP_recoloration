@@ -259,16 +259,19 @@ def load_images(path, target_size=None, gray=False):
         for impath in glob.glob(os.path.join(new_path, "*.{}".format(ext))):
             print(f'impath {impath}')
             image_paths.append(impath) # *** IndexError: list index out of range
-    first_image = cv2.imread(image_paths[0])
+    breakpoint()
+    print(f'image_paths[0]: {image_paths[0]}')
+    first_image = cv2.imread(image_paths[0]) 
     W, H = first_image.shape[:2]
     image_paths.sort()
-    image_paths = image_paths
+    image_paths = image_paths[:100]
     first_image = cv2.imread(image_paths[0])
+   
     if target_size is None:
         target_size = first_image.shape[1], first_image.shape[0]
     
     final_images = np.zeros((len(image_paths), W, H, 3), dtype=first_image.dtype) #  final_images = np.zeros((len(image_paths), H, W, 3), dtype=first_image.dtype)
-   
+    # final_images = np.zeros((len(image_paths), *target_size, 3), dtype=first_image.dtype)
     for idx, impath in enumerate(image_paths):
         im = cv2.imread(impath) # (480, 640, 3)
         if gray:
@@ -277,12 +280,23 @@ def load_images(path, target_size=None, gray=False):
         im = cv2.resize(im, target_size)  # Resize the image
         im = im[:, :, ::-1] # Convert from BGR to RGB
         assert im.dtype == final_images.dtype
-        # im = cv2.resize(im, (image_size_w, image_size_h))
+        im = cv2.resize(im, (image_size_w, image_size_h))
+        print(f'im: {im.shape}')
+        # print(f'final_images: {final_images.shape}')
+        print(f'final_images[idx] : {final_images[idx].shape}')
+        print(f'first_image: {first_image.shape}')
 
+        # assert im.shape == final_images[idx].shape # error here
+
+        if im.shape[:2] != (target_size[1], target_size[0]):
+            print(f'target size: {target_size}')
+            im = cv2.resize(im, target_size)  # Resize to the specified target size - final_images[idx-1].shape[:, :
+            print(f'im: {im.shape}')
+        breakpoint()
         final_images[idx] = im #(640, 480, 3)   HERE: # ValueError: could not broadcast input array from shape (480,640,3) into shape (640,480,3)
     return final_images
 
-def get_fid(path1,path2,batch_size,use_multiprocessing = True):
+def get_fid(path1, path2, batch_size, use_multiprocessing = True):
     images1 = load_images(path1)
     images2 = load_images(path2)
     fid_value = calculate_fid(images1, images2, use_multiprocessing, batch_size)

@@ -429,13 +429,18 @@ class WarpNet(nn.Module):
         # self.phi = nn.Conv2d(
         #     in_channels=self.in_channels, out_channels=self.inter_channels, kernel_size=1, stride=1, padding=0
         # )
+        
         # self.theta_class = nn.Linear(256,256) # OG
         # self.phi_class = nn.Linear(256,256) # OG
 
         #  size mismatch for phi_class.weight: copying a param with shape torch.Size([256, 256, 1, 1]) from checkpoint, the shape in current model is torch.Size([256, 256])
 
-        self.theta_class = nn.Linear(256,256, 1, 1) #  CUDA error here, likely labels mismatch
-        self.phi_class = nn.Linear(256,256, 1, 1)
+        # self.theta_class = nn.Linear(256,256, 1, 1) #  CUDA error here, likely labels mismatch
+        # self.phi_class = nn.Linear(256,256, 1, 1)
+
+        self.theta_class = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, stride=1, padding=0)
+        self.phi_class = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=1, stride=1, padding=0)
+
 
         self.upsampling = nn.Upsample(scale_factor=4)
         self.mode_targetp = False

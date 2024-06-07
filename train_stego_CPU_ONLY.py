@@ -53,12 +53,12 @@ parser.add_argument("--data_videoclip", default="/dataset/videvo/test/imgs/Coupl
 parser.add_argument("--data_root_imagenet", default=".\\dataset\\coco-2017\\", type=str) # OG ./dataset/coco-2017/ 	# dataset\coco-2017
 parser.add_argument("--data_root_imagenet10k", default="./dataset/coco-2017/", type=str)	 #need to prepare dataset  
 parser.add_argument("--data_root_wild", default="/dataset/from_paper/SSCN", type=str)
-# parser.add_argument("--gpu_ids", type=str, default="0", help="separate by comma") # 0,1
+parser.add_argument("--gpu_ids", type=str, default="0", help="separate by comma") # 0,1
 # parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--batch_size", type=int, default=8)
 parser.add_argument("--image_size", type=int, default=[256, 256])
 parser.add_argument("--ic", type=int, default=4)
-parser.add_argument("--epoch", type=int, default=1) # OG 40
+parser.add_argument("--epoch", type=int, default=40) # OG 40
 parser.add_argument("--num_class", type=int, default=27)
 
 parser.add_argument("--resume_epoch", type=int, default=0)
@@ -78,7 +78,7 @@ parser.add_argument("--lr_gamma", type=float, default=0.5)
 
 
 parser.add_argument("--checkpoint_dir", type=str, default="./dataset/checkpoints/spcolor/checkpoints/")
-parser.add_argument("--checkpoint_dir_out", type=str, default="./dataset/checkpoints/spcolor/checkpoints/")
+parser.add_argument("--checkpoint_dir_out", type=str, default="./dataset/checkpoints/spcolor/checkpoints/my_checkpoints/")
 parser.add_argument("--val_output_path", type=str, default="./dataset/checkpoints/spcolor/SSCN")
 parser.add_argument("--log_path", type=str, default="./dataset/checkpoints/spcolor/runs/stego_pro_s")
 parser.add_argument("--reference_order", type=int, default=1)
@@ -118,6 +118,23 @@ print('local_rank', local_rank)
 # greenwich and home
 os.environ["MASTER_ADDR"] = "172.19.16.81" # host address
 # os.environ["MASTER_ADDR"] = "localhost:0"
+
+# Function to check for NaN or infinite values
+def check_for_nan(tensor, tensor_name="tensor"):
+    if torch.isnan(tensor).any():
+        print(f"NaN values found in {tensor_name}")
+        return True
+    if torch.isinf(tensor).any():
+        print(f"Infinite values found in {tensor_name}")
+        return True
+    return False
+
+
+# Function to check CUDA memory usage
+def check_cuda_memory():
+    if torch.cuda.is_available():
+        print(torch.cuda.memory_summary())
+
 
 def image_logger_fn(
     I_current_lab,
@@ -176,14 +193,14 @@ def training_logger():
                     torch.mean(S2).item(),
                 )
             )
-            # print("l1_loss",l1_loss.item(),
-            #         "feat_loss", feat_loss.item(),
-            #         "contextual_loss_total", contextual_loss_total.item(),
-            #         "smoothness_loss", smoothness_loss.item(),
-            #         "nonlocal_smoothness_loss", nonlocal_smoothness_loss.item(),
-            #         "generator_loss", generator_loss.item(),
-            #         "discriminator_loss", discriminator_loss.item(),
-            #         "total_loss", total_loss.item(),)
+            print("l1_loss",l1_loss.item(),
+                    "feat_loss", feat_loss.item(),
+                    "contextual_loss_total", contextual_loss_total.item(),
+                    "smoothness_loss", smoothness_loss.item(),
+                    "nonlocal_smoothness_loss", nonlocal_smoothness_loss.item(),
+                    "generator_loss", generator_loss.item(),
+                    "discriminator_loss", discriminator_loss.item(),
+                    "total_loss", total_loss.item(),)
 
             # this function needs to run so scalers show on tensorboard
             value_logger(
@@ -473,14 +490,15 @@ def rename_state_dict_keys(source, key_transformation, target=None):
     """
     if target is None:
         target = source
-
-    print('source', source)
-    print('target', target)
+    print(f'rename_state_dict_keys')
+    print(f'NOTE TO SELF: PLEASE TURN OFF AND USED SAVED NEW KEYS')
+    print('source: ', source)
+    print('target: ', target)
 
     state_dict = torch.load(source, map_location=torch.device('cpu'))
-    print('state_dict', state_dict)
+    print('state_dict', len(state_dict))
     new_state_dict = OrderedDict()
-    print('new_state_dict', new_state_dict)
+    print('new_state_dict', len(new_state_dict))
 
     for key, value in state_dict.items():
         new_key = key_transformation(key)
@@ -547,6 +565,7 @@ def colornet_key_transformation(old_key):
 # loaded_state_dict = torch.load(path)
 # current_model_dict = nonlocal_net_temp.state_dict()
 
+# epoch error may stem here.
 def resume_model():									   #继续学习 ，加载参数
     if local_rank==0:
         print("resuming the learning")
@@ -687,6 +706,49 @@ def to_device_CPU(
     # print('colornet.is_cuda(): ',colornet.is_cuda())
     # print('nonlocal_net.is_cuda(): ',nonlocal_net.is_cuda())
     # print('discriminator.is_cuda()' ,discriminator.is_cuda())
+    return (
+        vggnet,
+        nonlocal_net,
+        colornet,
+        discriminator,
+        instancenorm,
+        contextual_loss,
+        contextual_forward_loss,
+        weighted_layer_color,
+        nonlocal_weighted_layer,
+        downsampling_by2,
+        stego
+    )
+	
+def to_device_GPU(
+    colornet,
+    nonlocal_net,
+    discriminator,
+    vggnet,
+    contextual_loss,
+    contextual_forward_loss,
+    weighted_layer_color,
+    nonlocal_weighted_layer,
+    instancenorm,
+    downsampling_by2,
+    stego 
+):
+    print('to_device_GPU: ', device)
+    # add assert statement forcing GPU-mode!
+    colornet = colornet.to(device)
+    nonlocal_net = nonlocal_net.to(device) # this tensor we are tracking
+    discriminator = discriminator.to(device)
+    vggnet = vggnet.to(device)
+    contextual_loss = contextual_loss.to(device)
+    contextual_forward_loss = contextual_forward_loss.to(device)
+    weighted_layer_color = weighted_layer_color.to(device)
+    nonlocal_weighted_layer = nonlocal_weighted_layer.to(device)
+    instancenorm = instancenorm.to(device)
+
+    print('colornet.is_cuda(): ',colornet.is_cuda())
+    print('nonlocal_net.is_cuda(): ',nonlocal_net.is_cuda())
+    print('discriminator.is_cuda()' ,discriminator.is_cuda())
+    
     return (
         vggnet,
         nonlocal_net,
@@ -1197,7 +1259,7 @@ if __name__ == "__main__":
         nonlocal_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "nonlocal_net_iter_76000.pth")			  #这个加载的是什么？
         nonlocal_net.load_state_dict(torch.load(nonlocal_pretain_path,map_location='cpu'),strict=opt.strict_load)
         color_test_path = "/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/" + "colornet_iter_76000.pth"	
-        color_test = torch.load(color_test_path,map_location='cpu')
+        color_test = torch.load(color_test_path, map_location='cpu')
         #del color_test["conv1_1.0.weight"]
         colornet.load_state_dict(color_test,strict=opt.strict_load)
         discriminator_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "discriminator_iter_76000.pth")
@@ -1326,13 +1388,15 @@ if __name__ == "__main__":
     # %% Training
     if local_rank==0:
         print("start training")
-    for epoch in range(opt.resume_epoch,opt.epoch):
-        if local_rank==0:
+        print("epoch %d" % opt.epoch)
+    for epoch in range(opt.resume_epoch, opt.epoch):
+        print(f' range {range(opt.resume_epoch, opt.epoch)}')
+        if local_rank == 0:
             print("epoch %d" % epoch)
-        start_time = time.time()
-        # data_loader.sampler.set_epoch(epoch) 
-        # AttributeError: 'SequentialSampler' object has no attribute 'set_epoch'
-        epoch_start = time.time()
+            start_time = time.time()
+         # data_loader.sampler.set_epoch(epoch) 
+            # AttributeError: 'SequentialSampler' object has no attribute 'set_epoch'
+            epoch_start = time.time()
         for iter, data in enumerate(data_loader):	# keep breakpoint for debug loop				 #每个iter读取的数据
             #print("in training!",len(data_loader))
 
@@ -1340,6 +1404,7 @@ if __name__ == "__main__":
             
             print("inside training loop")
             print("iter:", iter)
+            print("total_iter:", total_iter)
 
             ###### LOADING DATA SAMPLE ######
             (
@@ -1374,18 +1439,22 @@ if __name__ == "__main__":
                 I_current_nonlocal_lab_predict,
                 S1
             ) = video_colorization()
-            #print("colorized!")
+            print("colorized!")
+            
             ###### UPDATE DISCRIMINATOR ######				 ###### UPDATE DISCRIMINATOR ######
             optimizer_g.zero_grad()
             optimizer_d.zero_grad()
-            if opt.weight_gan > 0:
 
+            print('updated DISCRIMINATOR')
+            if opt.weight_gan > 0:
+                print(f'opt.weight_gan: {opt.weight_gan}')
                 fake_data_lab = torch.cat(
                     (uncenter_l(I_current_l), I_current_ab_predict), dim=1
                 )
                 real_data_lab = torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1)
 
                 if opt.permute_data:
+                    print('permute_data')
                     batch_index = torch.arange(-1, opt.batch_size - 1, dtype=torch.long)
                     real_data_lab = real_data_lab[batch_index, ...]
 
@@ -1394,16 +1463,36 @@ if __name__ == "__main__":
 
                 y = torch.ones_like(y_pred_real)
                 y2 = torch.zeros_like(y_pred_real)
+                print(f'y and y2: {(y.shape, y2.shape)}')
                 discriminator_loss = (
                     torch.mean((y_pred_real - torch.mean(y_pred_fake) - y) ** 2)
                     + torch.mean((y_pred_fake - torch.mean(y_pred_real) + y) ** 2)
                 ) / 2 * opt.weight_discrim
-                discriminator_loss.backward()
+
+                # if check_for_nan(discriminator_loss, "discriminator_loss"):
+                #     raise ValueError("NaN or Infinite values found in discriminator_loss")
+
+                print(check_for_nan(discriminator_loss, 'discriminator_loss'))
+
+                print(f'discriminator_loss: {discriminator_loss}')
+                # try:
+                #     discriminator_loss.backward()  # break here??? stops here
+                # except RuntimeError as e:
+                #     print("RuntimeError during backward pass: ", e)
+                #     check_cuda_memory()
+                #     raise
+                
+                print(check_cuda_memory())
+                discriminator_loss.backward() #break here??? stops here
                 optimizer_d.step()
+                
+                print(f'discriminator_loss: {discriminator_loss}')
+                print('exit weight gan')
 
             ###### UPDATE GENERATOR ######
             optimizer_g.zero_grad()
             optimizer_d.zero_grad()
+            print('Updated GENERATOR')
 
             # extract vgg features for both output and original image
             I_predict_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_current_l), I_current_ab_predict), dim=1))
@@ -1416,6 +1505,7 @@ if __name__ == "__main__":
                 I_current_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True
             )
             B_relu1_1, B_relu2_1, B_relu3_1, B_relu4_1, B_relu5_1 = features_B
+            print('VGG features')
 
             ###### LOSS COMPUTE ######
             # l1 loss
@@ -1509,7 +1599,7 @@ if __name__ == "__main__":
                     * opt.weight_nonlocal_smoothness
                 )
 
-
+            print('before total loss')
             # total loss
             total_loss = (
                 l1_loss
@@ -1521,7 +1611,8 @@ if __name__ == "__main__":
             )
             total_loss.backward()
             optimizer_g.step()
-            
+            print('logged total loss')
+
             if total_iter % opt.validation_step == 0:
                 print("start validation!")
                 # torch.cuda.empty_cache()
@@ -1533,11 +1624,18 @@ if __name__ == "__main__":
                 #print("result fid:",fid)
             if local_rank == 0: # dist.get_rank() == 0
                 training_logger()
+                print('training_logger()')
             if total_iter % opt.print_step == 0:
                 start_time = time.time()
+                print('total_iter % opt.print_step == 0')
             step_optim_scheduler_g.step()
             step_optim_scheduler_d.step()
+        
+        print('outside of training loop')
         epoch_time = time.time() - epoch_start
-        print("epoch_time:",epoch_time)
+        print("epoch_time:", epoch_time)
+
         if local_rank == 0: # OG dist.get_rank() == 0
             data_queue.put((None, None))
+
+# %%
