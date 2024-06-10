@@ -504,6 +504,59 @@ def key_transformation(old_key):
 
         return old_key
 
+
+def key_trans_colornet(old_key):
+    #  Missing key(s) in state_dict: "conv1_1_new.0.weight", "conv1_1_new.0.bias", "conv1_1_new.2.weight", "conv1_1_new.2.bias".
+    #  Unexpected key(s) in state_dict: "conv1_1.0.weight", "conv1_1.0.bias", "conv1_1.2.weight", "conv1_1.2.bias".
+    if old_key == "conv1_1.0.weight":
+        return "conv1_1_new.0.weight"
+    if old_key == "conv1_1.0.bias":
+        return "conv1_1_new.0.bias"
+    if old_key == "conv1_1.2.weight":
+        return "conv1_1_new.2.weight"
+    if old_key == "conv1_1.2.bias":
+        return "conv1_1_new.2.bias"
+    if old_key == "conv1_1.0.bias":
+        return "conv1_1_new.0.bias"
+    
+    return old_key
+
+def key_trans_Discriminator_x64(old_key):
+        # Missing key(s) in state_dict: "layer1_new.0.module.bias", "layer1_new.0.module.weight_u", "layer1_new.0.module.weight_v", "layer1_new.0.module.weight_bar", "last_new.module.bias", "last_new.module.weight_u", "last_new.module.weight_v", "last_new.module.weight_bar".
+        # Unexpected key(s) in state_dict: "layer1.0.module.bias", "layer1.0.module.weight_u", "layer1.0.module.weight_v", "layer1.0.module.weight_bar", "last.module.bias", "last.module.weight_u", "last.module.weight_v", "last.module.weight_bar".
+    if old_key == "layer1.0.module.bias":
+        return "layer1_new.0.module.bias"
+    if old_key == "layer1.0.module.weight_u":
+        return "layer1_new.0.module.weight_u"
+    if old_key == "layer1.0.module.weight_v":
+        return "layer1_new.0.module.weight_v"
+    if old_key == "layer1.0.module.weight_bar":
+        return "layer1_new.0.module.weight_bar"
+    
+    if old_key == "last.module.bias":
+        return "last_new.module.bias"
+    if old_key == "last.module.weight_u":
+        return "last_new.module.weight_u"
+    if old_key == "last.module.weight_v":
+        return "last_new.module.weight_v"
+    if old_key == "last.module.weight_bar":
+        return "last_new.module.weight_bar"
+    
+    return old_key
+
+def adjust_checkpoint(checkpoint_path, model):
+    checkpoint = torch.load(checkpoint_path)
+    model_state_dict = model.state_dict()
+
+    new_state_dict = {}
+    for key, param in checkpoint.items():
+        if key in model_state_dict and model_state_dict[key].size() == param.size():
+            new_state_dict[key] = param
+        else:
+            print(f'Skipping {key} due to size mismatch.')
+
+    return new_state_dict
+
 def resume_model():									   #继续学习 ，加载参数
     if local_rank==0:
         print("resuming the learning")
@@ -513,8 +566,10 @@ def resume_model():									   #继续学习 ，加载参数
         # checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "nonlocal_net_iter_%d.pth" % total_iter),map_location='cpu')
         # print('checkpoint', checkpoint)
         temp_checkpoint_path = os.path.join(opt.checkpoint_dir, "nonlocal_net_iter_%d.pth" % total_iter)
-        rename_state_dict_keys(temp_checkpoint_path, key_transformation=key_transformation, target=f"{opt.checkpoint_dir}nonlocal_net_iter_{total_iter}_newkeys.pth") # have a new .pth name, not overwrite orginal keys.
+        if not os.path.exists(f"{opt.checkpoint_dir}nonlocal_net_iter_{total_iter}_newkeys.pth"): 
+            rename_state_dict_keys(temp_checkpoint_path, key_transformation=key_transformation, target=f"{opt.checkpoint_dir}nonlocal_net_iter_{total_iter}_newkeys.pth") # have a new .pth name, not overwrite orginal keys.
         new_checkpoint = f"{opt.checkpoint_dir}nonlocal_net_iter_{total_iter}_newkeys.pth"
+        
         try:
             torch.load(new_checkpoint) 
         except RuntimeError as e:
@@ -528,10 +583,40 @@ def resume_model():									   #继续学习 ，加载参数
                                                         # Unexpected key(s) in state_dict: "theta.weight", "theta.bias", "phi.weight", "phi.bias".
         # rename state dict for our model????
         # See here: https://gist.github.com/the-bass/0bf8aaa302f9ba0d26798b11e4dd73e3
-        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "colornet_iter_%d.pth" % total_iter), map_location='cpu')
-        colornet.module.load_state_dict(checkpoint)
-        checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter), map_location='cpu')
-        discriminator.module.load_state_dict(checkpoint)
+    
+        temp_checkpoint_path_colornet = os.path.join(opt.checkpoint_dir, "colornet_iter_%d.pth" % total_iter)
+        if not os.path.exists(f"{opt.checkpoint_dir}colornet_iter_{total_iter}_newkeys.pth"):
+            print(f"creating {opt.checkpoint_dir}colornet_iter_{total_iter}_newkeys.pth")
+            rename_state_dict_keys(temp_checkpoint_path_colornet, key_transformation=key_trans_colornet, target=f"{opt.checkpoint_dir}colornet_iter_{total_iter}_newkeys.pth") # have a new .pth name, not overwrite orginal keys.
+        new_checkpoint_colornet_path = f"{opt.checkpoint_dir}colornet_iter_{total_iter}_newkeys.pth"
+
+        # checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "colornet_iter_%d.pth" % total_iter), map_location='cpu')
+        new_checkpoint_colornet = torch.load(new_checkpoint_colornet_path)
+        colornet.load_state_dict(new_checkpoint_colornet)
+        
+        temp_checkpoint_path_discriminator = os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter)
+        # if not os.path.exists(f"{opt.checkpoint_dir}discriminator_iter_{total_iter}_newkeys.pth"):
+        rename_state_dict_keys(temp_checkpoint_path_discriminator, key_transformation=key_trans_Discriminator_x64, target=f"{opt.checkpoint_dir}discriminator_iter_{total_iter}_newkeys.pth") # have a new .pth name, not overwrite orginal keys.
+        new_checkpoint_discriminator_path = f"{opt.checkpoint_dir}discriminator_iter_{total_iter}_newkeys.pth"
+
+        
+        # checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter), map_location='cpu')
+        discriminator_checkpoint = torch.load(new_checkpoint_discriminator_path)
+        discriminator_state_dict = discriminator.state_dict()
+        # discriminator.load_state_dict(discriminator_checkpoint)
+
+
+        # Load only the matched parameters
+        matched_params = {k: v for k, v in discriminator_checkpoint.items() if k in discriminator_state_dict and discriminator_state_dict[k].size() == v.size()}
+        unmatched_params = {k: v for k, v in discriminator_checkpoint.items() if k not in matched_params}
+
+        print("Unmatched parameters:")
+        for k, v in unmatched_params.items():
+            print(k, v.size())
+
+        discriminator_state_dict.update(matched_params)
+        discriminator.load_state_dict(discriminator_state_dict, strict=False)
+
     else:
         checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "learning_checkpoint.pth"), map_location='cpu')
         total_iter = checkpoint["total_iter"]
@@ -849,14 +934,14 @@ def validate_video():
                     # I_current_rgb_ori = lab2rgb_transpose_mc(I_current_l[i], I_current_ab[i])
                     # save_frames(I_current_rgb_ori, "/dataset/ImageNet_val/val_10000/croped_imgs", image_name = namelist[i])
     
-        torch.distributed.barrier()
-        # if dist.get_rank()==0:
-        #     fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
-        #     print("fid:",fid)
-        #     top1,top5 = get_top1_5(val_output_path)
-        # else:
-        #     top1,top5 = [0,0]
-        #     fid = 0
+        # torch.distributed.barrier()
+        if local_rank==0:
+            fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
+            print("fid:",fid)
+            top1,top5 = get_top1_5(val_output_path)
+        else:
+            top1,top5 = [0,0]
+            fid = 0
         # torch.distributed.barrier()
     # except ChildFailedError as e:
     #     print("ChildFatherError: --fid--")
@@ -1019,7 +1104,7 @@ def validate():
                     # save_frames(I_current_rgb_ori, "/dataset/ImageNet_val/val_10000/croped_imgs", image_name = namelist[i])
     
         torch.distributed.barrier()
-        if dist.get_rank()==0:
+        if local_rank==0:
             fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
             print("fid:",fid)
             top1,top5 = get_top1_5(val_output_path)
@@ -1090,6 +1175,7 @@ if __name__ == "__main__":
 
     colornet = ColorVidNet(opt.ic)
     discriminator = Discriminator_x64(in_size=3,ndf=64)
+
     if opt.num_class < 27:
         print("using cra in segmantation, num class:",opt.num_class)
         cra = True
@@ -1373,7 +1459,9 @@ if __name__ == "__main__":
         if local_rank==0:
             print("epoch %d" % epoch)
         start_time = time.time()
-        data_loader.sampler.set_epoch(epoch)
+        # data_loader.sampler.set_epoch(epoch)
+        # data_loader.set_epoch(epoch) # AttributeError: 'SequentialSampler' object has no attribute 'set_epoch'
+        # https://discuss.pytorch.org/t/why-is-sampler-set-epoch-epoch-needed-for-distributedsampler/149672/2
         epoch_start = time.time()
         for iter, data in enumerate(data_loader):					 #每个iter读取的数据
             #print("in training!",len(data_loader))
@@ -1567,8 +1655,10 @@ if __name__ == "__main__":
                 except Exception as e:
                     print("---fail validation---")
                     print(e)
-                #print("result fid:",fid)
-            if dist.get_rank() == 0:
+                print("result fid:",fid)
+            # if dist.get_rank() == 0:
+            #     training_logger()
+            if local_rank == 0:
                 training_logger()
             if total_iter % opt.print_step == 0:
                 start_time = time.time()
@@ -1576,5 +1666,7 @@ if __name__ == "__main__":
             step_optim_scheduler_d.step()
         epoch_time = time.time() - epoch_start
         print("epoch_time:",epoch_time)
-        if dist.get_rank() == 0:
+        # if dist.get_rank() == 0:
+        #     data_queue.put((None, None))
+        if local_rank == 0:
             data_queue.put((None, None))

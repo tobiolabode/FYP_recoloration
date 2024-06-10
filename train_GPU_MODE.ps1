@@ -9,4 +9,4 @@ conda activate ML
 # torchrun --standalone --nnodes=1 --nproc-per-node=1 --rdzv-backend=c10d --rdzv-endpoint=localhost:0 train_stego.py
 # torchrun --standalone --nnodes=1 --nproc-per-node=1 --rdzv-backend=c10d --rdzv-endpoint=localhost:0 train_stego.py --gpu_ids="0"
 # torchrun --standalone --nnodes=1 --nproc-per-node=1 --rdzv-backend=c10d --rdzv-endpoint=localhost:0 train_stego.py --gpu_ids="0"
-python train_stego.py --gpu_ids="0"
+python train_stego.py --gpu_ids="0" --ic="7" --epoch="40" --resume_iter="76000"
