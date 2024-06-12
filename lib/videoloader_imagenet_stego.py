@@ -194,7 +194,7 @@ class VideosDataset_ImageNet(data.Dataset):
 
     def __getitem__(self, index):
         try:
-            #print("get item")
+            print("get item")
             pair_id = index
 
             combo_path = None
@@ -268,7 +268,9 @@ class VideosDataset_ImageNet(data.Dataset):
         return outputs
 
     def __len__(self):
-        return self.real_len#len(self.image_pairs)
+        print('calling __len__ VideosDataset_ImageNet')
+        print('self.real_len: ', self.real_len)
+        return self.real_len #len(self.image_pairs)
 
 
 # def parse_images_10k(dir):  #refs in folder

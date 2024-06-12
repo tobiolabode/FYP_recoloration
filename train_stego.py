@@ -110,7 +110,7 @@ parser.add_argument("--use_masked_percept", type=bool, default=True)
 # local_rank = int(os.environ["LOCAL_RANK"])
 local_rank = 0
 # local_rank = 0 #temp for CPU usage
-print('local_rank', local_rank)
+# print('local_rank', local_rank)
 # print('--gpu_ids: ', gpu_ids)
 # os.environ["MASTER_ADDR"] = "193.60.79.174"
 # os.environ["MASTER_ADDR"] = "192.168.9.104iZ2ze9q3ftqtxtqlkrk6tuZ"
@@ -154,6 +154,10 @@ def image_logger_fn(
 
 
 def training_logger():
+    print("INSIDE TRAINING LOGGER")
+    print(f'total_iter {total_iter}')
+    print(f'print_step {opt.print_step}')
+    print(f'total_iter % opt.print_step == 0: {total_iter % opt.print_step == 0}')
     try:
         if total_iter % opt.print_step == 0:
             end_time = time.time()
@@ -175,14 +179,14 @@ def training_logger():
                     torch.mean(S2).item(),
                 )
             )
-            # print("l1_loss",l1_loss.item(),
-            #         "feat_loss", feat_loss.item(),
-            #         "contextual_loss_total", contextual_loss_total.item(),
-            #         "smoothness_loss", smoothness_loss.item(),
-            #         "nonlocal_smoothness_loss", nonlocal_smoothness_loss.item(),
-            #         "generator_loss", generator_loss.item(),
-            #         "discriminator_loss", discriminator_loss.item(),
-            #         "total_loss", total_loss.item(),)
+            print("l1_loss",l1_loss.item(),
+                    "feat_loss", feat_loss.item(),
+                    "contextual_loss_total", contextual_loss_total.item(),
+                    "smoothness_loss", smoothness_loss.item(),
+                    "nonlocal_smoothness_loss", nonlocal_smoothness_loss.item(),
+                    "generator_loss", generator_loss.item(),
+                    "discriminator_loss", discriminator_loss.item(),
+                    "total_loss", total_loss.item(),)
 
             value_logger(
                 tb_writer,
@@ -221,6 +225,7 @@ def training_logger():
                 )
             )
 
+        # change folder path for saved checkpoints
         if total_iter % opt.save_checkpoint_step == 0:
             if 1:
                 torch.save(
@@ -292,8 +297,9 @@ def worker_init_fn(worker_id):
     return np.random.seed(torch.initial_seed()%(2**31)+worker_id)
 
 def load_data_imagenet():
-    if local_rank==0:
-        print("initializing dataloader")
+    print('initializing dataloader load_data_imagenet')
+    # if local_rank==0:
+    #     print("initializing dataloader")
     # transforms_video = [
     #     CenterCrop(opt.image_size),
     #     RGB2Lab(),
@@ -327,21 +333,25 @@ def load_data_imagenet():
         real_reference_probability=opt.real_reference_probability,
     )
 
-    #imagenet_training_length = len(train_dataset_imagenet)
+    imagenet_training_length = len(train_dataset_imagenet)
+    print('imagenet_training_length: ', imagenet_training_length)
     # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
 
     data_loader = DataLoader(
         train_dataset_imagenet,
         batch_size=opt.batch_size,
         shuffle=False,
-        num_workers=opt.workers,
+        # num_workers=opt.workers,
         pin_memory=False,
         drop_last=True,
-        worker_init_fn = worker_init_fn,
+        # worker_init_fn = worker_init_fn,
         sampler = None,
     )
     return train_dataset_imagenet.real_len, data_loader
+    
+    print(f'DataLoader length: {len(data_loader)}')
 
+    # print('data_loader: ', data_loader)
 
 def load_data_video():
     if local_rank==0:
@@ -391,7 +401,7 @@ def load_data_imagenet10k():
             )
 
     #imagenet_training_length = len(train_dataset_imagenet)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset_imagenet)
 
     data_loader = DataLoader(
         train_dataset_imagenet,
@@ -400,10 +410,10 @@ def load_data_imagenet10k():
         num_workers=opt.workers,
         pin_memory=False,
         drop_last=False,
-        worker_init_fn = worker_init_fn,
-        sampler = train_sampler,
+        # worker_init_fn = worker_init_fn,
+        sampler = None,
     )
-    return  data_loader
+    return data_loader
 
 def define_loss():									 #定义loss
     if local_rank==0:
@@ -562,6 +572,7 @@ def resume_model():									   #继续学习 ，加载参数
         print("resuming the learning")
     if opt.resume_iter:
         total_iter = opt.resume_iter
+        print('resume_model() : total_iter')
         epoch = 0
         # checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "nonlocal_net_iter_%d.pth" % total_iter),map_location='cpu')
         # print('checkpoint', checkpoint)
@@ -1019,6 +1030,7 @@ def validate_wild():
 
 
 def validate():
+    print('enter validate()')
     time_stego=[]
     time_nonlocal=[]
     time_resnet=[]
@@ -1103,7 +1115,7 @@ def validate():
                     # I_current_rgb_ori = lab2rgb_transpose_mc(I_current_l[i], I_current_ab[i])
                     # save_frames(I_current_rgb_ori, "/dataset/ImageNet_val/val_10000/croped_imgs", image_name = namelist[i])
     
-        torch.distributed.barrier()
+        # torch.distributed.barrier()
         if local_rank==0:
             fid = get_fid(os.path.join(opt.data_root_imagenet10k,"croped_imgs"),val_output_path,8)
             print("fid:",fid)
@@ -1111,7 +1123,7 @@ def validate():
         else:
             top1,top5 = [0,0]
             fid = 0
-        torch.distributed.barrier()
+        # torch.distributed.barrier()
     # except ChildFailedError as e:
     #     print("ChildFatherError: --fid--")
     #     print(e)
@@ -1155,6 +1167,16 @@ if __name__ == "__main__":
     # device = torch.device ('cuda' if torch.cuda.is_available () else 'cpu')
     dataset_real_len, data_loader = load_data_imagenet()			   #load data
     iter_num_per_epoch = len(data_loader) #// opt.batch_size
+    print(f'dataset_real_len, data_loader: {dataset_real_len, data_loader}')
+    print('iter_num_per_epoch: ', iter_num_per_epoch) #HERE IS THE ERROR!!!
+
+    # Verify DataLoader
+    for iter, data in enumerate(data_loader):
+        print(f"Batch {iter}: {data}")
+        if iter == 0:
+            break  # Only print the first batch for inspection
+
+
 
     if local_rank == 0:
         tb_writer = SummaryWriter(log_path=opt.log_path)
@@ -1201,11 +1223,11 @@ if __name__ == "__main__":
         nonlocal_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "nonlocal_net_iter_76000.pth")			  #这个加载的是什么？
         nonlocal_net.load_state_dict(torch.load(nonlocal_pretain_path,map_location='cpu'),strict=opt.strict_load)
         color_test_path = "/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/" + "colornet_iter_76000.pth"	
-        color_test = torch.load(color_test_path,map_location='cpu')
+        color_test = torch.load(color_test_path, map_location='cpu')
         #del color_test["conv1_1.0.weight"]
         colornet.load_state_dict(color_test,strict=opt.strict_load)
         discriminator_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "discriminator_iter_76000.pth")
-        discriminator_pretain = torch.load(discriminator_pretain_path,map_location='cpu')
+        discriminator_pretain = torch.load(discriminator_pretain_path, map_location='cpu')
         #del discriminator_pretain['layer1']
         discriminator.load_state_dict(discriminator_pretain,strict=opt.strict_load)
 
@@ -1402,6 +1424,33 @@ if __name__ == "__main__":
         stego
     ) = to_device_results
 
+    # (
+    #     vggnet,
+    #     nonlocal_net,
+    #     colornet,
+    #     discriminator,
+    #     instancenorm,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     downsampling_by2,
+    #     stego
+    # ) = to_device_GPU(
+    #     colornet,
+    #     nonlocal_net,
+    #     discriminator,
+    #     vggnet,
+    #     contextual_loss,
+    #     contextual_forward_loss,
+    #     weighted_layer_color,
+    #     nonlocal_weighted_layer,
+    #     instancenorm,
+    #     downsampling_by2,
+    #     stego
+    # )
+
+
     (
         feat_loss,
         contextual_loss_total,
@@ -1422,6 +1471,7 @@ if __name__ == "__main__":
     else:
         total_iter = 0
 
+    print('total_iter: ', total_iter)
     # dataset info
     #iter_num_per_epoch = dataset_training_length // opt.batch_size
     #total_iter = opt.resume_epoch * iter_num_per_epoch
@@ -1453,9 +1503,10 @@ if __name__ == "__main__":
         os._exit(1)
 
     # %% Training
+    print(f"Data loader length before loop: {len(data_loader)}")
     if local_rank==0:
         print("start training")
-    for epoch in range(opt.resume_epoch,opt.epoch):
+    for epoch in range(opt.resume_epoch, opt.epoch):
         if local_rank==0:
             print("epoch %d" % epoch)
         start_time = time.time()
@@ -1463,209 +1514,240 @@ if __name__ == "__main__":
         # data_loader.set_epoch(epoch) # AttributeError: 'SequentialSampler' object has no attribute 'set_epoch'
         # https://discuss.pytorch.org/t/why-is-sampler-set-epoch-epoch-needed-for-distributedsampler/149672/2
         epoch_start = time.time()
-        for iter, data in enumerate(data_loader):					 #每个iter读取的数据
-            #print("in training!",len(data_loader))
-            total_iter += 1
+       
+        ## debugging loop
+        print('debugging loop training')
+        print(f"Data loader length: {len(data_loader)}")
+        print(f"data_loader.dataset: {len(data_loader.dataset)}")
+        # print(f"Data loader __len__: {data_loader.__len__}")
+        # print('dataloader: ', data_loader) 
+        # [(iter, data) for iter, data in enumerate(data_loader)]
+        #returns self.real_len:  6
+        # empty list ?!?!
 
-            ###### LOADING DATA SAMPLE ######
-            (
-                I_current_lab,
-                I_reference_lab,
-                I_current_rgb,
-                I_reference_rgb,
-                self_ref_flag,
-            ) = data
-            #print("got data!")
-            I_current_lab = I_current_lab.cuda(non_blocking=True)
-            I_reference_lab = I_reference_lab.cuda(non_blocking=True)
-            I_current_rgb = I_current_rgb.cuda(non_blocking=True)
-            I_reference_rgb = I_reference_rgb.cuda(non_blocking=True)
-            self_ref_flag = self_ref_flag.cuda(non_blocking=True)
+        print(f'[(iter, data) for iter, data in enumerate(data_loader)]: {[(iter, data) for iter, data in enumerate(data_loader)]}')
 
-            I_current_l = I_current_lab[:, 0:1, :, :]										  # l a b -- 0 1 2
-            I_current_ab = I_current_lab[:, 1:3, :, :]
+        try:
+            for iter, data in enumerate(data_loader):					 #每个iter读取的数据
+                # stops here????
+                print("in training!")
+                print(f"{len(data_loader)}")
+                total_iter += 1
+                print('total_iter: ', total_iter)
 
-            I_reference_l = I_reference_lab[:, 0:1, :, :]
-            I_reference_ab = I_reference_lab[:, 1:3, :, :]
-            #I_reference_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_reference_l), I_reference_ab), dim=1))				 #uncenter
-            features_B = vggnet(I_reference_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True)
-            ###### stego clusters#####
-            cluster_value_current,cluster_preds_current = stego.my_app(I_current_rgb)  # 8 256 256
-            cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb)
+                ###### LOADING DATA SAMPLE ######
+                (
+                    I_current_lab,
+                    I_reference_lab,
+                    I_current_rgb,
+                    I_reference_rgb,
+                    self_ref_flag,
+                ) = data
+                #print("got data!")
+                print('loading data sample')
+                I_current_lab = I_current_lab.cuda(non_blocking=True)
+                I_reference_lab = I_reference_lab.cuda(non_blocking=True)
+                I_current_rgb = I_current_rgb.cuda(non_blocking=True)
+                I_reference_rgb = I_reference_rgb.cuda(non_blocking=True)
+                self_ref_flag = self_ref_flag.cuda(non_blocking=True)
 
-            ###### COLORIZATION ######						###### COLORIZATION ######
-            (
-                I_current_ab_predict,
-                I_current_nonlocal_lab_predict,
-                S1
-            ) = video_colorization()
-            #print("colorized!")
-            ###### UPDATE DISCRIMINATOR ######				 ###### UPDATE DISCRIMINATOR ######
-            optimizer_g.zero_grad()
-            optimizer_d.zero_grad()
-            if opt.weight_gan > 0:
+                I_current_l = I_current_lab[:, 0:1, :, :]										  # l a b -- 0 1 2
+                I_current_ab = I_current_lab[:, 1:3, :, :]
 
-                fake_data_lab = torch.cat(
-                    (uncenter_l(I_current_l), I_current_ab_predict), dim=1
-                )
-                real_data_lab = torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1)
+                I_reference_l = I_reference_lab[:, 0:1, :, :]
+                I_reference_ab = I_reference_lab[:, 1:3, :, :]
+                #I_reference_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_reference_l), I_reference_ab), dim=1))				 #uncenter
+                features_B = vggnet(I_reference_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True)
+                ###### stego clusters#####
+                cluster_value_current,cluster_preds_current = stego.my_app(I_current_rgb)  # 8 256 256
+                cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb)
 
-                if opt.permute_data:
-                    batch_index = torch.arange(-1, opt.batch_size - 1, dtype=torch.long)
-                    real_data_lab = real_data_lab[batch_index, ...]
+                ###### COLORIZATION ######						###### COLORIZATION ######
+                (
+                    I_current_ab_predict,
+                    I_current_nonlocal_lab_predict,
+                    S1
+                ) = video_colorization()
+                print("colorized!")
+                ###### UPDATE DISCRIMINATOR ######				 ###### UPDATE DISCRIMINATOR ######
+                optimizer_g.zero_grad()
+                optimizer_d.zero_grad()
+                if opt.weight_gan > 0:
 
-                y_pred_fake, feature_pred_fake = discriminator(fake_data_lab.detach())
-                y_pred_real, feature_pred_real = discriminator(real_data_lab.detach())
-
-                y = torch.ones_like(y_pred_real)
-                y2 = torch.zeros_like(y_pred_real)
-                discriminator_loss = (
-                    torch.mean((y_pred_real - torch.mean(y_pred_fake) - y) ** 2)
-                    + torch.mean((y_pred_fake - torch.mean(y_pred_real) + y) ** 2)
-                ) / 2 * opt.weight_discrim
-                discriminator_loss.backward()
-                optimizer_d.step()
-
-            ###### UPDATE GENERATOR ######
-            optimizer_g.zero_grad()
-            optimizer_d.zero_grad()
-
-            # extract vgg features for both output and original image
-            I_predict_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_current_l), I_current_ab_predict), dim=1))
-            predict_relu1_1, predict_relu2_1, predict_relu3_1, predict_relu4_1, predict_relu5_1 = vggnet(
-                I_predict_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True
-            )
-
-            I_current_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1))
-            A_relu1_1, A_relu2_1, A_relu3_1, A_relu4_1, A_relu5_1 = vggnet(
-                I_current_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True
-            )
-            B_relu1_1, B_relu2_1, B_relu3_1, B_relu4_1, B_relu5_1 = features_B
-
-            ###### LOSS COMPUTE ######
-            # l1 loss
-            if opt.weigth_l1 > 0:
-                sample_weights = (self_ref_flag[:, 1:3, :, :]) / (sum(self_ref_flag[:, 0, 0, 0]) + 1e-5)
-                l1_loss = weighted_l1_loss(I_current_ab_predict, I_current_ab, sample_weights) * opt.weigth_l1
-
-            # generator loss
-            if opt.weight_gan > 0:
-                y_pred_fake, feature_pred_fake = discriminator(fake_data_lab)
-                y_pred_real, feature_pred_real = discriminator(real_data_lab)
-                generator_loss = (
-                    (
-                        torch.mean((y_pred_real - torch.mean(y_pred_fake) + y) ** 2)
-                        + torch.mean((y_pred_fake - torch.mean(y_pred_real) - y) ** 2)
+                    fake_data_lab = torch.cat(
+                        (uncenter_l(I_current_l), I_current_ab_predict), dim=1
                     )
-                    / 2
-                    * opt.weight_gan
+                    real_data_lab = torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1)
+
+                    if opt.permute_data:
+                        batch_index = torch.arange(-1, opt.batch_size - 1, dtype=torch.long)
+                        real_data_lab = real_data_lab[batch_index, ...]
+
+                    y_pred_fake, feature_pred_fake = discriminator(fake_data_lab.detach())
+                    y_pred_real, feature_pred_real = discriminator(real_data_lab.detach())
+
+                    y = torch.ones_like(y_pred_real)
+                    y2 = torch.zeros_like(y_pred_real)
+                    discriminator_loss = (
+                        torch.mean((y_pred_real - torch.mean(y_pred_fake) - y) ** 2)
+                        + torch.mean((y_pred_fake - torch.mean(y_pred_real) + y) ** 2)
+                    ) / 2 * opt.weight_discrim
+                    discriminator_loss.backward()
+                    optimizer_d.step()
+                print('UPDATED DISCRIMINATOR')
+
+                ###### UPDATE GENERATOR ######
+                optimizer_g.zero_grad()
+                optimizer_d.zero_grad()
+                print('UPDATED GENERATOR')
+
+                # extract vgg features for both output and original image
+                I_predict_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_current_l), I_current_ab_predict), dim=1))
+                predict_relu1_1, predict_relu2_1, predict_relu3_1, predict_relu4_1, predict_relu5_1 = vggnet(
+                    I_predict_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True
                 )
 
-            # feature loss
-            if opt.domain_invariant:
-                feat_loss = (
-                    mse_loss(instancenorm(predict_relu5_1), instancenorm(A_relu5_1.detach()))
-                    * opt.weight_perceptual
-                    * 1e5
-                    * 0.2
+                I_current_rgb = tensor_lab2rgb(torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1))
+                A_relu1_1, A_relu2_1, A_relu3_1, A_relu4_1, A_relu5_1 = vggnet(
+                    I_current_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True
                 )
-            else:
-                if opt.use_masked_percept:
-                    # S2 = S1 / 0.5
-                    # S2[S2<0.4]=0
-                    # S2[S2>0.9]=0.9
-                    S2 = 1 - S1
-                    S2 = F.interpolate(S2,size=A_relu5_1.shape[-2:])
-                    feat_loss = weighted_mse_loss(predict_relu5_1,A_relu5_1.detach(),S2) * opt.weight_perceptual
+                B_relu1_1, B_relu2_1, B_relu3_1, B_relu4_1, B_relu5_1 = features_B
+
+                print('UPDATED VGG')
+
+
+                ###### LOSS COMPUTE ######
+                # l1 loss
+                if opt.weigth_l1 > 0:
+                    sample_weights = (self_ref_flag[:, 1:3, :, :]) / (sum(self_ref_flag[:, 0, 0, 0]) + 1e-5)
+                    l1_loss = weighted_l1_loss(I_current_ab_predict, I_current_ab, sample_weights) * opt.weigth_l1
+
+                # generator loss
+                if opt.weight_gan > 0:
+                    y_pred_fake, feature_pred_fake = discriminator(fake_data_lab)
+                    y_pred_real, feature_pred_real = discriminator(real_data_lab)
+                    generator_loss = (
+                        (
+                            torch.mean((y_pred_real - torch.mean(y_pred_fake) + y) ** 2)
+                            + torch.mean((y_pred_fake - torch.mean(y_pred_real) - y) ** 2)
+                        )
+                        / 2
+                        * opt.weight_gan
+                    )
+
+                print('UPDATED LOSS COMPUTE')
+                # feature loss
+                if opt.domain_invariant:
+                    feat_loss = (
+                        mse_loss(instancenorm(predict_relu5_1), instancenorm(A_relu5_1.detach()))
+                        * opt.weight_perceptual
+                        * 1e5
+                        * 0.2
+                    )
                 else:
-                    S2=torch.tensor([0])
-                    feat_loss = mse_loss(predict_relu5_1, A_relu5_1.detach()) * opt.weight_perceptual
+                    if opt.use_masked_percept:
+                        # S2 = S1 / 0.5
+                        # S2[S2<0.4]=0
+                        # S2[S2>0.9]=0.9
+                        S2 = 1 - S1
+                        S2 = F.interpolate(S2,size=A_relu5_1.shape[-2:])
+                        feat_loss = weighted_mse_loss(predict_relu5_1,A_relu5_1.detach(),S2) * opt.weight_perceptual
+                    else:
+                        S2=torch.tensor([0])
+                        feat_loss = mse_loss(predict_relu5_1, A_relu5_1.detach()) * opt.weight_perceptual
 
-            # contextual loss
-            if opt.contextual_loss_direction == "backward":
-                contextual_style5_1 = torch.mean(contextual_loss(predict_relu5_1, B_relu5_1.detach())) * 8
-                contextual_style4_1 = torch.mean(contextual_loss(predict_relu4_1, B_relu4_1.detach())) * 4
-                contextual_style3_1 = (
-                    torch.mean(contextual_loss(downsampling_by2(predict_relu3_1), downsampling_by2(B_relu3_1.detach()))) * 2
-                )
-            else:
-                contextual_style5_1 = torch.mean(contextual_forward_loss(predict_relu5_1, B_relu5_1.detach())) * 8
-                contextual_style4_1 = torch.mean(contextual_forward_loss(predict_relu4_1, B_relu4_1.detach())) * 4
-                contextual_style3_1 = (
-                    torch.mean(
-                        contextual_forward_loss(downsampling_by2(predict_relu3_1), downsampling_by2(B_relu3_1.detach()))
+                # contextual loss
+                if opt.contextual_loss_direction == "backward":
+                    contextual_style5_1 = torch.mean(contextual_loss(predict_relu5_1, B_relu5_1.detach())) * 8
+                    contextual_style4_1 = torch.mean(contextual_loss(predict_relu4_1, B_relu4_1.detach())) * 4
+                    contextual_style3_1 = (
+                        torch.mean(contextual_loss(downsampling_by2(predict_relu3_1), downsampling_by2(B_relu3_1.detach()))) * 2
                     )
-                    * 2
-                )
-            if opt.weight_contextual > 0:
-                contextual_loss_total = (
-                    contextual_style5_1 + contextual_style4_1 + contextual_style3_1
-                ) * opt.weight_contextual
-
-            # smoothness loss
-            if opt.weight_smoothness > 0:
-                scale_factor = 1
-                I_current_lab_predict = torch.cat((I_current_l, I_current_ab_predict), dim=1)
-                IA_ab_weighed = weighted_layer_color(
-                    I_current_lab, I_current_lab_predict, patch_size=3, alpha=2, scale_factor=scale_factor
-                )
-                smoothness_loss = (
-                    mse_loss(nn.functional.interpolate(I_current_ab_predict, scale_factor=scale_factor), IA_ab_weighed)
-                    * opt.weight_smoothness
-                )
-
-            if opt.weight_nonlocal_smoothness > 0:
-                scale_factor = 0.25
-                alpha_nonlocal_smoothness = 0.5
-                nonlocal_smooth_feature = feature_normalize(A_relu2_1)
-                I_current_lab_predict = torch.cat((I_current_l, I_current_ab_predict), dim=1)
-                I_current_ab_weighted_nonlocal = nonlocal_weighted_layer(
-                    I_current_lab_predict,
-                    nonlocal_smooth_feature.detach(),
-                    patch_size=3,
-                    alpha=alpha_nonlocal_smoothness,
-                    scale_factor=scale_factor,
-                )
-                nonlocal_smoothness_loss = (
-                    mse_loss(
-                        nn.functional.interpolate(I_current_ab_predict, scale_factor=scale_factor),
-                        I_current_ab_weighted_nonlocal,
+                else:
+                    contextual_style5_1 = torch.mean(contextual_forward_loss(predict_relu5_1, B_relu5_1.detach())) * 8
+                    contextual_style4_1 = torch.mean(contextual_forward_loss(predict_relu4_1, B_relu4_1.detach())) * 4
+                    contextual_style3_1 = (
+                        torch.mean(
+                            contextual_forward_loss(downsampling_by2(predict_relu3_1), downsampling_by2(B_relu3_1.detach()))
+                        )
+                        * 2
                     )
-                    * opt.weight_nonlocal_smoothness
+                if opt.weight_contextual > 0:
+                    contextual_loss_total = (
+                        contextual_style5_1 + contextual_style4_1 + contextual_style3_1
+                    ) * opt.weight_contextual
+
+                # smoothness loss
+                if opt.weight_smoothness > 0:
+                    scale_factor = 1
+                    I_current_lab_predict = torch.cat((I_current_l, I_current_ab_predict), dim=1)
+                    IA_ab_weighed = weighted_layer_color(
+                        I_current_lab, I_current_lab_predict, patch_size=3, alpha=2, scale_factor=scale_factor
+                    )
+                    smoothness_loss = (
+                        mse_loss(nn.functional.interpolate(I_current_ab_predict, scale_factor=scale_factor), IA_ab_weighed)
+                        * opt.weight_smoothness
+                    )
+
+                if opt.weight_nonlocal_smoothness > 0:
+                    scale_factor = 0.25
+                    alpha_nonlocal_smoothness = 0.5
+                    nonlocal_smooth_feature = feature_normalize(A_relu2_1)
+                    I_current_lab_predict = torch.cat((I_current_l, I_current_ab_predict), dim=1)
+                    I_current_ab_weighted_nonlocal = nonlocal_weighted_layer(
+                        I_current_lab_predict,
+                        nonlocal_smooth_feature.detach(),
+                        patch_size=3,
+                        alpha=alpha_nonlocal_smoothness,
+                        scale_factor=scale_factor,
+                    )
+                    nonlocal_smoothness_loss = (
+                        mse_loss(
+                            nn.functional.interpolate(I_current_ab_predict, scale_factor=scale_factor),
+                            I_current_ab_weighted_nonlocal,
+                        )
+                        * opt.weight_nonlocal_smoothness
+                    )
+
+
+                # total loss
+                total_loss = (
+                    l1_loss
+                    + feat_loss
+                    + contextual_loss_total
+                    + smoothness_loss
+                    + nonlocal_smoothness_loss
+                    + generator_loss
                 )
-
-
-            # total loss
-            total_loss = (
-                l1_loss
-                + feat_loss
-                + contextual_loss_total
-                + smoothness_loss
-                + nonlocal_smoothness_loss
-                + generator_loss
-            )
-            total_loss.backward()
-            optimizer_g.step()
+                total_loss.backward()
+                optimizer_g.step()
+                print('TOTAL LOSS')
+                print(total_loss)
             
-            if total_iter % opt.validation_step == 0:
-                print("start validation!")
-                torch.cuda.empty_cache()
-                try:
-                    fid,top1,top5 = validate()
-                except Exception as e:
-                    print("---fail validation---")
-                    print(e)
-                print("result fid:",fid)
-            # if dist.get_rank() == 0:
-            #     training_logger()
-            if local_rank == 0:
+                ########## validation_step
+                if total_iter % opt.validation_step == 0:
+                    print("start validation!")
+                    torch.cuda.empty_cache()
+                    try:
+                        fid,top1,top5 = validate()
+                    except Exception as e:
+                        print("---fail validation---")
+                        print(e)
+                    print("result fid:",fid)
+                
+                #### LOGGING
                 training_logger()
-            if total_iter % opt.print_step == 0:
-                start_time = time.time()
-            step_optim_scheduler_g.step()
-            step_optim_scheduler_d.step()
+                print('calling training_logger()')
+                
+                if total_iter % opt.print_step == 0:
+                    start_time = time.time()
+                step_optim_scheduler_g.step()
+                step_optim_scheduler_d.step()
+        except Exception as e:
+            print(f"Error occurred in epoch {epoch}, iteration {iter}: {e}")
+            break  # Optional: break the loop or handle it as needed
         epoch_time = time.time() - epoch_start
-        print("epoch_time:",epoch_time)
+        print("epoch_time:", epoch_time)
         # if dist.get_rank() == 0:
         #     data_queue.put((None, None))
         if local_rank == 0:
