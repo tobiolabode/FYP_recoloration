@@ -45,6 +45,13 @@ from collections import OrderedDict
 
 cv2.setNumThreads(0)
 
+def parse_int_list(value):
+    try:
+        return [int(i) for i in value.strip('[]').split(',')]
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"Invalid int list: '{value}'")
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_root", default="./", type=str) # home/zhanbo/remote/video/video_pair3/
 parser.add_argument("--data_videoclip", default="/dataset/videvo/test/imgs/CoupleRidingMotorbike", type=str)
@@ -56,7 +63,7 @@ parser.add_argument("--data_root_wild", default="/dataset/from_paper/SSCN", type
 parser.add_argument("--gpu_ids", type=str, default="0", help="separate by comma") # 0,1
 parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--batch_size", type=int, default=8)
-parser.add_argument("--image_size", type=int, default=[256, 256])
+parser.add_argument("--image_size", type=parse_int_list, default=[256, 256])
 parser.add_argument("--ic", type=int, default=4)
 parser.add_argument("--epoch", type=int, default=40)
 parser.add_argument("--num_class", type=int, default=27)
@@ -612,7 +619,7 @@ def resume_model():									   #继续学习 ，加载参数
 
         
         # checkpoint = torch.load(os.path.join(opt.checkpoint_dir, "discriminator_iter_%d.pth" % total_iter), map_location='cpu')
-        discriminator_checkpoint = torch.load(new_checkpoint_discriminator_path)
+        discriminator_checkpoint = torch.load(new_checkpoint_discriminator_path, map_location='cuda')
         discriminator_state_dict = discriminator.state_dict()
         # discriminator.load_state_dict(discriminator_checkpoint)
 
@@ -845,6 +852,7 @@ def loss_init():									 #初始化loss为0
 
 def video_colorization():
     # colorization for the current frame
+    print('calling video_colorization()')
     I_current_ab_predict , out_tensor_warp,_ = frame_colorization(
         I_current_lab,
         I_reference_lab,
@@ -859,9 +867,10 @@ def video_colorization():
         feature_noise=0,
         luminance_noise=opt.luminance_noise,
     )
+    print(f"I_current_ab_predict , out_tensor_warp,_: {I_current_ab_predict.shape, out_tensor_warp.shape}")
     I_current_nonlocal_lab_predict = torch.cat((I_current_l,out_tensor_warp[:,0:2,:,:]),dim=1)
     S1 = out_tensor_warp[:,2:3,:,:]
-
+    print(f"S1, I_current_nonlocal_lab_predict: {I_current_nonlocal_lab_predict.shape, S1.shape}")
     return I_current_ab_predict ,I_current_nonlocal_lab_predict.detach(),S1.detach()
 
 def validate_video():
@@ -1213,7 +1222,7 @@ if __name__ == "__main__":
     instancenorm = nn.InstanceNorm2d(512, affine=False)
 
     vggnet = VGG19_pytorch()
-    vggnet.load_state_dict(torch.load("C:\\Users\\tnint\\Coding\\Side_projects\\spcolor\\dataset\\checkpoints\\spcolor\\checkpoints\\video_moredata_l1\\vgg19_conv.pth",map_location='cpu'))
+    vggnet.load_state_dict(torch.load("C:\\Users\\tnint\\Coding\\Side_projects\\spcolor\\dataset\\checkpoints\\spcolor\\checkpoints\\video_moredata_l1\\vgg19_conv.pth",map_location='cuda'))
     vggnet.eval()																							  #加载VGG19并固定参数
     for param in vggnet.parameters():
         param.requires_grad = False
@@ -1221,13 +1230,13 @@ if __name__ == "__main__":
     # load pre-trained model
     if opt.load_pretrained_model and not opt.resume:
         nonlocal_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "nonlocal_net_iter_76000.pth")			  #这个加载的是什么？
-        nonlocal_net.load_state_dict(torch.load(nonlocal_pretain_path,map_location='cpu'),strict=opt.strict_load)
+        nonlocal_net.load_state_dict(torch.load(nonlocal_pretain_path,map_location='cuda'),strict=opt.strict_load)
         color_test_path = "/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/" + "colornet_iter_76000.pth"	
-        color_test = torch.load(color_test_path, map_location='cpu')
+        color_test = torch.load(color_test_path, map_location='cuda')
         #del color_test["conv1_1.0.weight"]
         colornet.load_state_dict(color_test,strict=opt.strict_load)
         discriminator_pretain_path = os.path.join("/dataset/checkpoints/spcolor/checkpoints/video_moredata_l1/", "discriminator_iter_76000.pth")
-        discriminator_pretain = torch.load(discriminator_pretain_path, map_location='cpu')
+        discriminator_pretain = torch.load(discriminator_pretain_path, map_location='cuda')
         #del discriminator_pretain['layer1']
         discriminator.load_state_dict(discriminator_pretain,strict=opt.strict_load)
 
@@ -1526,7 +1535,10 @@ if __name__ == "__main__":
         # empty list ?!?!
 
         print(f'[(iter, data) for iter, data in enumerate(data_loader)]: {[(iter, data) for iter, data in enumerate(data_loader)]}')
-
+        # TODO: PYTORCH_CUDA_ALLOC_CONF
+        # https://stackoverflow.com/questions/71498324/pytorch-runtimeerror-cuda-out-of-memory-with-a-huge-amount-of-free-memory
+        # I wasted several hours until I discovered that reducing the batch size and resizing the width of my input image (image size) were necessary steps.
+        
         try:
             for iter, data in enumerate(data_loader):					 #每个iter读取的数据
                 # stops here????
@@ -1560,7 +1572,8 @@ if __name__ == "__main__":
                 features_B = vggnet(I_reference_rgb, ["r12", "r22", "r32", "r42", "r52"], preprocess=True)
                 ###### stego clusters#####
                 cluster_value_current,cluster_preds_current = stego.my_app(I_current_rgb)  # 8 256 256
-                cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb)
+                cluster_value_ref,cluster_preds_ref = stego.my_app(I_reference_rgb) # error here
+                # Error occurred in epoch 0, iteration 0: Given groups=1, weight of size [256, 256, 1, 1], expected input[1, 1, 683, 256] to have 256 channels, but got 1 channels instead
 
                 ###### COLORIZATION ######						###### COLORIZATION ######
                 (

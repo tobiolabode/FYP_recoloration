@@ -363,7 +363,7 @@ def prepare_l_tosave(img):  # input 0~1     b c h w / c h w
 
 class WarpNet(nn.Module):
     """ input is Al, Bl, channel = 1, range~[0,255] """
-
+    print('calling WrapNet')
     def __init__(self, batch_size):
         super(WarpNet, self).__init__()
         self.feature_channel = 64

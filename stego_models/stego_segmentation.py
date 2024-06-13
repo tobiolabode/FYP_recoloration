@@ -45,7 +45,7 @@ class STEGO_seg():
         # How to load this model that does not exist?
         # the weights of model maybe GPU mode?????
         #model.eval()
-        model.to('cpu')
+        model.to('cuda')
         self.model = model
         self.par_model = model.net
         self.mode = ["Kmeans","pre"] # Kmeans  Hierarchical
@@ -77,9 +77,10 @@ class STEGO_seg():
     def my_app(self,img,mode_unsupervised = True,cmp=False):
         with torch.no_grad():
             print('my_app stego_segmentation')
-            print('Stego_segmentation.py: torch.no_grad')
-            if img.shape[-1]!=256 or img.shape[-2]!=256:
-                _img = F.interpolate(img, [256,256], mode='bilinear', align_corners=False)
+            print('Stego_segmentation.py: torch.no_grad') 
+            # changed 256 to 128
+            if img.shape[-1]!=128 or img.shape[-2]!=128:
+                _img = F.interpolate(img, [128,128], mode='bilinear', align_corners=False)
                 feats, code = self.par_model(_img)
                 code = F.interpolate(code, img.shape[-2:], mode='bilinear', align_corners=False)
             else:
@@ -181,7 +182,8 @@ if __name__ == "__main__":
     '''
     image_dir = "../results/test_imgs"  #OG ../results/test_imgs
     result_dir = "../results/test_imgs_out" # OG ../results/test_imgs_out
-    res = 256
+    # res = 256 OG
+    res = 128
     batch_size = 1
     num_workers = 4
     easy_assignment = True
