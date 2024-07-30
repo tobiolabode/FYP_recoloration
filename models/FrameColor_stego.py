@@ -8,6 +8,7 @@ def warp_color(IA_l, IB_lab,
     features_B, vggnet, nonlocal_net, feature_noise=0, temperature=0.01):
     print('calling wrap_color')
     IA_rgb_from_gray = gray2rgb_batch(IA_l)
+    print('IB_lab: ', IB_lab)
     print('nonlocal_net: ', nonlocal_net)
     print('IA_rgb_from_gray: ', IA_rgb_from_gray.shape)
     print('cluster_value_current: ', cluster_value_current.shape)
@@ -33,6 +34,15 @@ def warp_color(IA_l, IB_lab,
     B_relu3_1 = feature_normalize(B_relu3_1)
     B_relu4_1 = feature_normalize(B_relu4_1)
     B_relu5_1 = feature_normalize(B_relu5_1)
+
+    print('A_relu2_1: ', A_relu2_1.shape)
+    print('A_relu3_1: ', A_relu3_1.shape)
+    print('A_relu4_1: ', A_relu4_1.shape)
+    print('A_relu5_1: ', A_relu5_1.shape)
+    print('B_relu2_1: ', B_relu2_1.shape)
+    print('B_relu3_1: ', B_relu3_1.shape)
+    print('B_relu4_1: ', B_relu4_1.shape)
+    print('B_relu5_1: ', B_relu5_1.shape)
 
     ablation_time = time.time()
     
@@ -63,7 +73,10 @@ def warp_color(IA_l, IB_lab,
     )
     end_time=time.time()
     _t_nonlocal = end_time-ablation_time
-    print('out_tensor_warp,_t_resnet,_t_nonlocal', [out_tensor_warp.shape,_t_resnet.shape,_t_nonlocal.shape])
+    # print('out_tensor_warp,_t_resnet,_t_nonlocal', [out_tensor_warp.shape,_t_resnet.shape,_t_nonlocal.shape])
+    print('out_tensor_warp', out_tensor_warp.shape)
+    print('_t_resnet', _t_resnet) #Float
+    print('_t_nonlocal', _t_nonlocal) #Float
 
     return out_tensor_warp,_t_resnet,_t_nonlocal
 
@@ -107,10 +120,21 @@ def frame_colorization(
         # out_tensor_warp[:,1:2,:,:][S2<0.1]=0
         # out_tensor_warp[:,2:3,:,:][S2<0.1]=0
         ablation_time=time.time()
-        IA_ab_predict = colornet(out_tensor_warp)
+        # out_tensor_warp: [1, 4, 128, 128]
+
+        additional_channels = torch.zeros_like(out_tensor_warp[:, :3, :, :])
+        out_tensor_warp_modifed = torch.cat([out_tensor_warp, additional_channels[:, :3, :, :]], dim=1)
+        print("out_tensor_warp_modifed shape after adding channels:", out_tensor_warp_modifed.shape)
+
+        IA_ab_predict = colornet(out_tensor_warp_modifed) # error here!!!
         end_time=time.time()
         _t_colornet = end_time-ablation_time
-        print(f"IA_ab_predict, out_tensor_warp,[_t_resnet,_t_nonlocal,_t_colornet]: {IA_ab_predict.shape, out_tensor_warp.shape, [_t_resnet.shape,_t_nonlocal.shape, _t_colornet.shape]}")
+        # print(f"IA_ab_predict, out_tensor_warp,[_t_resnet,_t_nonlocal,_t_colornet]: {IA_ab_predict.shape, out_tensor_warp.shape, [_t_resnet.shape,_t_nonlocal.shape, _t_colornet.shape]}")
+        # print(f"IA_ab_predict, out_tensor_warp,[_t_resnet,_t_nonlocal,_t_colornet]: {IA_ab_predict.shape, out_tensor_warp.shape, [_t_resnet.shape,_t_nonlocal.shape, _t_colornet.shape]}")
+        print('IA_ab_predict: ', IA_ab_predict.shape)
+        print('_t_resnet: ', _t_resnet)
+        print('out_tensor_warp: ', out_tensor_warp.shape)
+        # Error occurred in epoch 0, iteration 0: Given groups=1, weight of size [32, 7, 3, 3], expected input[1, 4, 128, 128] to have 7 channels, but got 4 channels instead
 
-    return IA_ab_predict, out_tensor_warp,[_t_resnet,_t_nonlocal,_t_colornet]
+    return IA_ab_predict, out_tensor_warp_modifed,[_t_resnet,_t_nonlocal,_t_colornet]
 

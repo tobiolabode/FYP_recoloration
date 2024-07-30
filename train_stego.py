@@ -126,6 +126,14 @@ local_rank = 0
 os.environ["MASTER_ADDR"] = "172.19.16.81" # host address
 # os.environ["MASTER_ADDR"] = "localhost:0"
 
+
+
+def check_mem():
+    
+    mem = os.popen('"<path\to\NVSMI>\nvidia-smi" --query-gpu=memory.total,memory.used --format=csv,nounits,noheader').read().split(",")
+    
+    return mem
+
 def image_logger_fn(
     I_current_lab,
     I_reference_lab,
@@ -1240,6 +1248,7 @@ if __name__ == "__main__":
         #del discriminator_pretain['layer1']
         discriminator.load_state_dict(discriminator_pretain,strict=opt.strict_load)
 
+    torch.cuda.empty_cache()
     # define loss function
     contextual_loss, contextual_forward_loss = define_loss()															  #定义loss
     downsampling_by2 = nn.AvgPool2d(kernel_size=2)
@@ -1582,21 +1591,25 @@ if __name__ == "__main__":
                     S1
                 ) = video_colorization()
                 print("colorized!")
+                torch.cuda.empty_cache()
+                print('CUDA Memoery Allocated: ', torch.cuda.memory_allocated())
+                # Error occurred in epoch 0, iteration 0: Calculated padded input size per channel: (2 x 2). Kernel size: (3 x 3). Kernel size can't be greater than actual input size
                 ###### UPDATE DISCRIMINATOR ######				 ###### UPDATE DISCRIMINATOR ######
-                optimizer_g.zero_grad()
+                optimizer_g.zero_grad() # Error occurred in epoch 0, iteration 0: CUDA out of memory. Tried to allocate 32.00 MiB. GPU 0 has a total capacty of 2.00 GiB of which 6.50 MiB is free. Of the allocated memory 996.75 MiB is allocated by PyTorch, and 23.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF    
                 optimizer_d.zero_grad()
+                torch.cuda.empty_cache()
                 if opt.weight_gan > 0:
 
                     fake_data_lab = torch.cat(
                         (uncenter_l(I_current_l), I_current_ab_predict), dim=1
-                    )
-                    real_data_lab = torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1)
+                    ) # torch.Size([1, 3, 128, 128])
+                    real_data_lab = torch.cat((uncenter_l(I_current_l), I_current_ab), dim=1) #   torch.Size([1, 3, 128, 128])
 
                     if opt.permute_data:
                         batch_index = torch.arange(-1, opt.batch_size - 1, dtype=torch.long)
                         real_data_lab = real_data_lab[batch_index, ...]
-
-                    y_pred_fake, feature_pred_fake = discriminator(fake_data_lab.detach())
+                    torch.cuda.empty_cache()
+                    y_pred_fake, feature_pred_fake = discriminator(fake_data_lab.detach()) #error here: Error occurred in epoch 0, iteration 0: Calculated padded input size per channel: (2 x 2). Kernel size: (3 x 3). Kernel size can't be greater than actual input size
                     y_pred_real, feature_pred_real = discriminator(real_data_lab.detach())
 
                     y = torch.ones_like(y_pred_real)
@@ -1605,6 +1618,7 @@ if __name__ == "__main__":
                         torch.mean((y_pred_real - torch.mean(y_pred_fake) - y) ** 2)
                         + torch.mean((y_pred_fake - torch.mean(y_pred_real) + y) ** 2)
                     ) / 2 * opt.weight_discrim
+                    torch.cuda.empty_cache()
                     discriminator_loss.backward()
                     optimizer_d.step()
                 print('UPDATED DISCRIMINATOR')

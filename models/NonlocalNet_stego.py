@@ -451,16 +451,61 @@ class WarpNet(nn.Module):
 
     def non_local(self,A_features,B_features,B_abs,batch_size=1,temperature=0.01):
         # pairwise cosine similarity
-        theta = self.theta_class(A_features.permute(0,2,1))  # 1*256*len -- 1*len*256
-        theta = theta - theta.mean(dim=1, keepdim=True)  # center the feature
-        theta_norm = torch.norm(theta, 2, -1, keepdim=True) + sys.float_info.epsilon
-        theta = torch.div(theta, theta_norm)
-        theta_permute = theta  # 1*len*256
-        phi = self.phi_class(B_features.permute(0,2,1)).permute(0,2,1)  # 1*256*len -- 1*len*256 -- 1*256*len
-        phi = phi - phi.mean(dim=-1, keepdim=True)  # center the feature
-        phi_norm = torch.norm(phi, 2, 1, keepdim=True) + sys.float_info.epsilon
-        phi = torch.div(phi, phi_norm)
-        f = torch.matmul(theta_permute, phi)  # 1*lenA*lenB
+        print(f"A_features shape: {A_features.shape}")
+        print(f"B_features shape: {B_features.shape}")
+        try:
+            # Check if input is 4D, if not, attempt to reshape
+            if A_features.dim() == 3:
+                A_features = A_features.unsqueeze(-1)
+            if B_features.dim() == 3:
+                B_features = B_features.unsqueeze(-1)
+
+            # theta = self.theta_class(A_features.permute(0,2,1))  # 1*256*len -- 1*len*256
+            theta = self.theta_class(A_features)  # 1*256*len -- 1*len*256
+            # theta layer: Conv2d(256, 256, kernel_size=(1, 1), stride=(1, 1))
+            # ERROR HERE: RuntimeError: Given groups=1, weight of size [256, 256, 1, 1], expected input[1, 1, 4, 256] to have 256 channels, but got 1 channels instead
+            # example of error:
+            # A_features shape: torch.Size([1, 256, 4, 1])
+            # B_features shape: torch.Size([1, 256, 12, 1])
+            theta = theta - theta.mean(dim=1, keepdim=True)  # center the feature
+            theta_norm = torch.norm(theta, 2, -1, keepdim=True) + sys.float_info.epsilon
+            theta = torch.div(theta, theta_norm)
+            theta_permute = theta  # 1*len*256
+
+            # if theta.dim() == 4:
+            #     theta_permute = theta.permute(0, 2, 3, 1).reshape(batch_size, -1, 256)
+            # else:
+            #     theta_permute = theta.permute(0, 2, 1)
+
+            theta_permute = theta.squeeze(-1).transpose(1, 2)
+
+            
+            # phi = self.phi_class(B_features.permute(0,2,1)).permute(0,2,1)  # 1*256*len -- 1*len*256 -- 1*256*len
+            phi = self.phi_class(B_features)  # 1*256*len -- 1*len*256 -- 1*256*len
+            # breaks here phi
+            phi = phi - phi.mean(dim=-1, keepdim=True)  # center the feature
+            phi_norm = torch.norm(phi, 2, 1, keepdim=True) + sys.float_info.epsilon
+            phi = torch.div(phi, phi_norm)
+
+            # if phi.dim() == 4:
+            #     phi = phi.permute(0, 2, 3, 1).reshape(batch_size, -1, 256)
+            # else:
+            #     phi = phi.permute(0, 2, 1)
+
+            # Reshape phi to 3D without using permute
+            phi = phi.squeeze(-1)
+            
+            # f = torch.matmul(theta_permute, phi)  # 1*lenA*lenB
+            # f = torch.matmul(theta_permute, phi.transpose(-2, -1)) use this ahgain
+            f = torch.matmul(theta_permute, phi)
+
+        except RuntimeError as e:
+            print(f"Error in non_local method: {e}")
+            print(f"A_features shape: {A_features.shape}")
+            print(f"B_features shape: {B_features.shape}")
+            print(f"theta shape: {theta.shape}")
+            print(f"phi shape: {phi.shape}")
+            raise
 
         #f_similarity = f.unsqueeze_(dim=1)    # 1 * lenA * lenB
         #print("simi_size_0",f.shape)
@@ -520,7 +565,15 @@ class WarpNet(nn.Module):
         image_width = B_lab_map.shape[3]
         feature_height = int(image_height / 4)
         feature_width = int(image_width / 4)
-        feature_size = [feature_height,feature_width]
+        feature_size = [feature_height, feature_width]
+
+        print('batch_size: ', batch_size)
+        print('channel: ', channel)
+        print('image_height: ', image_height)
+        print('image_width: ', image_width)
+        print('feature_height: ', feature_height)
+        print('feature_width: ', feature_width)
+        print('feature_size: ', feature_width)
 
         # scale feature size to 44*44
         A_feature2_1 = self.layer2_1(A_relu2_1)
@@ -532,20 +585,32 @@ class WarpNet(nn.Module):
         A_feature5_1 = self.layer5_1(A_relu5_1)
         B_feature5_1 = self.layer5_1(B_relu5_1)
 
+        print('A_feature2_1: ', A_feature2_1.shape)
+        print('B_feature2_1: ', B_feature2_1.shape)
+        print('A_feature3_1: ', A_feature3_1.shape)
+        print('A_feature4_1: ', A_feature4_1.shape)
+        print('B_feature4_1: ', B_feature4_1.shape)
+        print('A_feature5_1: ', A_feature5_1.shape)
+        print('B_feature5_1: ', B_feature5_1.shape)
+
         # concatenate features
         if A_feature5_1.shape[2] != A_feature2_1.shape[2] or A_feature5_1.shape[3] != A_feature2_1.shape[3]:
             h_dis =  A_feature2_1.shape[2] - A_feature5_1.shape[2]
             w_dis =  A_feature2_1.shape[3] - A_feature5_1.shape[3]
-            #print("shapes:",A_feature5_1.shape,A_feature2_1.shape,h_dis,w_dis)
+            print("shapes:",A_feature5_1.shape,A_feature2_1.shape,h_dis,w_dis)
             if w_dis:
                 A_feature5_1 = F.pad(A_feature5_1, (1, w_dis-1, 0, 0), "replicate")
                 B_feature5_1 = F.pad(B_feature5_1, (1, w_dis-1, 0, 0), "replicate")
             else:
                 A_feature5_1 = F.pad(A_feature5_1, (0,0, 1,h_dis-1), "replicate")
                 B_feature5_1 = F.pad(B_feature5_1, (0,0, 1,h_dis-1), "replicate")
-            #print("shapes:",A_feature5_1.shape,A_feature2_1.shape)
+            print("shapes:",A_feature5_1.shape,A_feature2_1.shape)
+        
         A_features = self.layer(torch.cat((A_feature2_1, A_feature3_1, A_feature4_1, A_feature5_1), 1))
         B_features = self.layer(torch.cat((B_feature2_1, B_feature3_1, B_feature4_1, B_feature5_1), 1))
+
+        print('A_features: ', A_features.shape)
+        print('B_features: ', B_features.shape)
 
         cluster_preds_current = F.interpolate(cluster_preds_current.unsqueeze(1).float(),feature_size,mode = "nearest")
         cluster_preds_ref = F.interpolate(cluster_preds_ref.unsqueeze(1).float(),feature_size,mode = "nearest")
@@ -554,6 +619,9 @@ class WarpNet(nn.Module):
 
         cluster_preds_current = cluster_preds_current.repeat(1,256,1,1)
         cluster_preds_ref = cluster_preds_ref.repeat(1,256,1,1)       # bs 256 64 64
+
+        print('cluster_preds_current: ', cluster_preds_current.shape)
+        print('cluster_preds_ref: ',cluster_preds_ref.shape)
         out_tensor = torch.zeros((batch_size,4,feature_height,feature_width),device=cluster_preds_current.device)
         B_ab = B_lab_map[:,1:3,:,:]
         B_ab = F.avg_pool2d(B_ab, 4)
@@ -565,6 +633,12 @@ class WarpNet(nn.Module):
             cluster_preds_current_batch = cluster_preds_current[i_batch:i_batch+1] # 1 * 256 * 64 * 64
             cluster_preds_ref_batch = cluster_preds_ref[i_batch:i_batch+1]
             B_abs_batch = B_abs[i_batch:i_batch+1]  # 1 * 3 * 64 *64
+            print('A_features_batch', A_features_batch.shape)
+            print('B_features_batch', B_features_batch.shape)
+            print('S_c_batch', S_c_batch.shape)
+            print('cluster_preds_current_batch', cluster_preds_current_batch.shape)
+            print('cluster_preds_ref_batch', cluster_preds_ref_batch.shape)
+            print('B_abs_batch', B_abs_batch.shape)
             if self.mode_targetp: # find target point correpondence
                 target_point_map = torch.zeros_like(A_features_batch)  # 1 256 64 64
                 target_point_map[:,:,self.target_point_h,self.target_point_w]=1
@@ -574,42 +648,89 @@ class WarpNet(nn.Module):
                 print("saved tpm")
                 class_target_point = cluster_preds_current_batch[0,0,self.target_point_h,self.target_point_w]
             for i_class in range(27):
-                A_class_flag = cluster_preds_current_batch==i_class
-                B_class_flag = cluster_preds_ref_batch == i_class
-                A_features_class =  A_features_batch[A_class_flag]
-                B_features_class =  B_features_batch[B_class_flag]
-                if self.mode_targetp:
-                    if i_class == class_target_point:
-                        tp_map_class = target_point_map[A_class_flag].view(1,256,-1)
-                        point_pos = torch.nonzero(tp_map_class[:,[0],:])
-                        print("checkpoints 1",point_pos)
-                        self.point_pos = int(point_pos[0,2])  #[[ 0,  0, 49]]
-                        print("pass 1",self.point_pos)
-                    else:
-                        self.point_pos = -1
+                print('I_CLASS: ', i_class)
+                try:
+                    A_class_flag = cluster_preds_current_batch==i_class
+                    B_class_flag = cluster_preds_ref_batch == i_class
 
-                if len(A_features_class) * len(B_features_class) == 0:
+                    if A_class_flag.dim() == 4:
+                        A_features_class = A_features_batch[A_class_flag.squeeze(1)]
+                    else:
+                        A_features_class = A_features_batch[A_class_flag]
+                    
+                    if B_class_flag.dim() == 4:
+                        B_features_class = B_features_batch[B_class_flag.squeeze(1)]
+                    else:
+                        B_features_class = B_features_batch[B_class_flag]
+
+                    if len(A_features_class) * len(B_features_class) == 0:
+                        continue
+                    
+                    # Reshape to 4D if necessary
+                    if A_features_class.dim() == 2:
+                        A_features_class = A_features_class.view(1, 256, -1, 1)
+                    elif A_features_class.dim() == 3:
+                        A_features_class = A_features_class.unsqueeze(-1)
+
+                    if B_features_class.dim() == 2:
+                        B_features_class = B_features_class.view(1, 256, -1, 1)
+                    elif B_features_class.dim() == 3:
+                        B_features_class = B_features_class.unsqueeze(-1)
+                  
+                    # A_features_class =  A_features_batch[A_class_flag]
+                    # B_features_class =  B_features_batch[B_class_flag]
+
+                    if self.mode_targetp:
+                        if i_class == class_target_point:
+                            tp_map_class = target_point_map[A_class_flag].view(1,256,-1)
+                            point_pos = torch.nonzero(tp_map_class[:,[0],:])
+                            print("checkpoints 1",point_pos)
+                            self.point_pos = int(point_pos[0,2])  #[[ 0,  0, 49]]
+                            print("pass 1",self.point_pos)
+                        else:
+                            self.point_pos = -1
+
+                    if len(A_features_class) * len(B_features_class) == 0:
+                        A_features_class = A_features_class.view(1, 256, -1, 1)
+                        B_features_class = B_features_class.view(1, 256, -1, 1)
+                        continue
+                    else:
+                        # A_features_class = A_features_class.view(1,256,-1)
+                        # B_features_class = B_features_class.view(1,256,-1)
+                        A_features_class = A_features_class.view(1,256,-1, 1)
+                        B_features_class = B_features_class.view(1,256,-1, 1)
+                        B_abs_class = B_abs_batch[B_class_flag[:,0:3]].view(1,3,-1)
+                        # 1*2*lenA  # 1*lenA
+                        y_class, s_class = self.non_local(A_features_class,B_features_class,B_abs_class,temperature=temperature) 
+                        
+                        out_tensor[i_batch:i_batch+1,0:2][A_class_flag[:,0:2]] = y_class.view(1,-1)
+                        out_tensor[i_batch:i_batch+1,2:3][A_class_flag[:,0:1]] = s_class
+                        if self.mode_targetp and self.point_pos>=0:
+                            twi = torch.zeros_like(out_tensor[i_batch:i_batch+1,0:1]) # 1 1 64 64
+                            twi[B_class_flag[:,0:1]] = self.tp_ref
+                            twi = prepare_l_tosave(twi)
+                            save_frames(twi, "/dataset/temp", image_name = "twi.png")
+                            print("saved twi")
+                except RuntimeError as e:
+                    print(f"Error processing class {i_class}: {e}")
+                    print(f"A_features_class shape: {A_features_class.shape}")
+                    print(f"B_features_class shape: {B_features_class.shape}")
+                    import traceback
+                    traceback.print_exc()
                     continue
-                else:
-                    A_features_class = A_features_class.view(1,256,-1)
-                    B_features_class = B_features_class.view(1,256,-1)
-                    B_abs_class = B_abs_batch[B_class_flag[:,0:3]].view(1,3,-1)
-                    # 1*2*lenA  # 1*lenA
-                    y_class,s_class = self.non_local(A_features_class,B_features_class,B_abs_class,temperature=temperature) 
-                    out_tensor[i_batch:i_batch+1,0:2][A_class_flag[:,0:2]] = y_class.view(1,-1)
-                    out_tensor[i_batch:i_batch+1,2:3][A_class_flag[:,0:1]] = s_class
-                    if self.mode_targetp and self.point_pos>=0:
-                        twi = torch.zeros_like(out_tensor[i_batch:i_batch+1,0:1]) # 1 1 64 64
-                        twi[B_class_flag[:,0:1]] = self.tp_ref
-                        twi = prepare_l_tosave(twi)
-                        save_frames(twi, "/dataset/temp", image_name = "twi.png")
-                        print("saved twi")
 
             out_tensor[i_batch:i_batch+1,2:3] = out_tensor[i_batch:i_batch+1,2:3] * S_c_batch
+            print('out_tensor before upsamping: ', out_tensor.shape)
             if self.mode_targetp:
                 smap = out_tensor[i_batch:i_batch+1,2:3]
                 smap = prepare_l_tosave(smap)
                 save_frames(smap,"/dataset/temp",image_name="smap.png")
                 print("saved smap")
         out_tensor = self.upsampling(out_tensor)
+        print('out_tensor', out_tensor.shape)
+        print("y_class shape:", y_class.shape)
+        print("s_class shape:", s_class.shape)
+        print("S_c_batch shape:", S_c_batch.shape)
+        # Error occurred in epoch 0, iteration 0: 'float' object has no attribute 'shape'
+        # Error occurred in epoch 0, iteration 0: Given groups=1, weight of size [32, 7, 3, 3], expected input[1, 4, 128, 128] to have 7 channels, but got 4 channels instead
         return out_tensor

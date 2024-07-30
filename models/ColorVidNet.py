@@ -4,7 +4,7 @@ import torch.nn.parallel
 
 
 class ColorVidNet(nn.Module):
-    def __init__(self, ic):
+    def __init__(self, ic=4 ): # kust ic
         super(ColorVidNet, self).__init__()
         self.conv1_1_new = nn.Sequential(nn.Conv2d(ic, 32, 3, 1, 1), nn.ReLU(), nn.Conv2d(32, 64, 3, 1, 1))
         self.conv1_2 = nn.Conv2d(64, 64, 3, 1, 1)

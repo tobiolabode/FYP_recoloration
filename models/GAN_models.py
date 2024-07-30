@@ -141,7 +141,8 @@ class Discriminator_x64(nn.Module):
         )
 
         #self.last = SpectralNorm(nn.Conv2d(self.ndf * 16, 1, [3, 6], 1, 0))
-        self.last_new = SpectralNorm(nn.Conv2d(self.ndf * 16, 1, 3, 1, 0))
+        self.last_new = SpectralNorm(nn.Conv2d(self.ndf * 16, 1, 2, 1, 0)) 
+        #  OG self.last_new = SpectralNorm(nn.Conv2d(self.ndf * 16, 1, 3, 1, 0))
 
     def forward(self, input):
         feature1 = self.layer1_new(input)
